@@ -2,6 +2,7 @@ using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.Text;
+using System.Globalization;
 using UnityEngine;
 using UnityEngine.Networking;
 using UnityEngine.UI;
@@ -10,8 +11,8 @@ using UTeleApp;
 public class GameManager : MonoBehaviour
 {
     [Header("Backends")]
-    public string backendUsersUrl = "http://127.0.0.1:8000/";
-    public string backendProductsUrl = "http://127.0.0.1:8008/";
+    public string backendUsersUrl = "http://127.0.0.1:8000";
+    public string backendProductsUrl = "http://127.0.0.1:8008";
 
     [Header("User (runtime)")]
     public string userID = "1";
@@ -22,7 +23,6 @@ public class GameManager : MonoBehaviour
     public float lvl_up = 0f;
     public string id = "";
 
-
     [Header("User Interface")]
     [SerializeField] private Text usernameText;
     [SerializeField] private Text refCountText;
@@ -31,11 +31,11 @@ public class GameManager : MonoBehaviour
     [SerializeField] private Text lvlText;
     [SerializeField] private Text lvl_up_Text;
     [SerializeField] private Text id_text;
-    
-    
-    
-    public FarmCell SelectedCell;       // сюда клетка пишет себя при клике
-    public List<FarmCell> cells = new(); // закинь вручную в инспекторе
+
+    [Header("Planting UI")]
+    public GameObject plantMenuUI;          // панель посадки
+    public FarmCell SelectedCell;           // выбранная клетка
+    public List<FarmCell> cells = new();    // назначь в инспекторе
 
     private Coroutine heartbeatCo;
 
@@ -54,6 +54,9 @@ public class GameManager : MonoBehaviour
         public string time_farm;
         public string seed_count;
         public string storage_count;
+        
+        public int grid_count = 3;     // если используешь
+        public string grid_state = ""; // <--- NEW
     }
 
     [Serializable]
@@ -61,20 +64,19 @@ public class GameManager : MonoBehaviour
     {
         public int id;
         public string name;
-        public float price;        // заменили decimal → float
-        public float sell_price;   // заменили decimal → float
-        public float speed_price;  // заменили decimal → float
+        public float price;
+        public float sell_price;
+        public float speed_price;
         public int lvl_for_buy;
         public int time;
         public string image_seed_link;
         public string image_ready_link;
     }
 
-
     public UserDto currentUser;
     public List<ProductDto> allProducts = new();
 
-    private void Awake()
+    private void Start()
     {
         TelegramWebApp.Ready();
         TelegramWebApp.Expand();
@@ -82,133 +84,204 @@ public class GameManager : MonoBehaviour
         userID = GetUserIdFromInitData(TelegramWebApp.InitData).ToString();
         username = GetUsernameFromInitData(JsonUtility.ToJson(TelegramWebApp.InitDataUnsafe));
 
+        foreach (var c in cells)
+            if (c != null) c.Init(this);
+
+        heartbeatCo = StartCoroutine(HeartbeatCoroutine());
+        
         if (usernameText) usernameText.text = username;
 
         StartCoroutine(EnsureUserExists());
         StartCoroutine(FetchAllProducts());
-        
-        
     }
     
-    private void Start()
-    {
-        foreach (var c in cells)
-            if (c != null) c.Init(this);
-
-        // раз в 5 секунд шлём текущее время в БД
-        heartbeatCo = StartCoroutine(HeartbeatCoroutine());
-    }
 
     private void OnDestroy()
     {
         if (heartbeatCo != null) StopCoroutine(heartbeatCo);
     }
+
+    [Serializable] private class CellStateEntry { public int key; public int pid; public int left; }
+    [Serializable] private class CellStateWrapper { public CellStateEntry[] items; }
+
     
-    
-    private IEnumerator HeartbeatCoroutine()
-{
-    while (true)
+    // Сбор таймеров по клеткам в JSON (как seed_count/storage_count)
+// Собираем состояние клеток: какой продукт и сколько осталось
+    public string BuildGridStateJson()
     {
-        yield return new WaitForSeconds(5f);
-        if (currentUser == null) continue;
-
+        var entries = new List<CellStateEntry>();
         long now = UnixNow();
-        string url = $"{backendUsersUrl}/users/{currentUser.id}";
-        string json = JsonUtility.ToJson(new HeartbeatBody { time_farm = now.ToString() });
-        byte[] body = Encoding.UTF8.GetBytes(json);
 
-        using (var req = new UnityWebRequest(url, "PUT"))
+        for (int i = 0; i < cells.Count; i++)
         {
-            req.uploadHandler = new UploadHandlerRaw(body);
+            var cell = cells[i];
+            var e = new CellStateEntry { key = i + 1, pid = 0, left = 0 };
+
+            if (cell != null && cell.isBusy)
+            {
+                // если идёт таймер — считаем остаток; если созрело, сохраняем left=0, pid остаётся
+                long left = cell.endUnix > now ? (cell.endUnix - now) : 1;
+                e.pid = cell.productId;
+                e.left = (int)left;
+            }
+            entries.Add(e);
+        }
+
+        var w = new CellStateWrapper { items = entries.ToArray() };
+        return JsonUtility.ToJson(w);
+    }
+
+
+
+    
+    // ---------- PATCH helper ----------
+    [Serializable]
+    private class PatchBody
+    {
+        public string field;
+        public string value;
+        public PatchBody(string f, string v) { field = f; value = v; }
+    }
+
+    private IEnumerator PatchUserField(string field, string valueAsString)
+    {
+        string url = $"{backendUsersUrl}/users/{currentUser.id}";
+        var body = new PatchBody(field, valueAsString);
+        string json = JsonUtility.ToJson(body);
+        byte[] bytes = Encoding.UTF8.GetBytes(json);
+
+        using (var req = new UnityWebRequest(url, "PATCH"))
+        {
+            req.uploadHandler = new UploadHandlerRaw(bytes);
             req.downloadHandler = new DownloadHandlerBuffer();
-            req.SetRequestHeader("Content-Type","application/json");
+            req.SetRequestHeader("Content-Type", "application/json");
             yield return req.SendWebRequest();
-            // при желании: лог ошибок
+
+            if (req.result != UnityWebRequest.Result.Success)
+                Debug.LogError($"[PATCH] {field} error: {req.responseCode} {req.error}");
         }
     }
-}
-[Serializable] private class HeartbeatBody { public string time_farm; }
 
-private static long UnixNow() =>
-    (long)(System.DateTime.UtcNow - new System.DateTime(1970,1,1)).TotalSeconds;
-
-// ======= ПОСАДКА: списать 1 семя и посадить в выбранную клетку =======
-public IEnumerator PlantInSelectedCell(int productId)
-{
-    if (SelectedCell == null) yield break;
-
-    // уменьшаем семена (без монет)
-    bool ok = false;
-    yield return ConsumeSeedOnServer(productId, () => ok = true);
-    if (!ok) yield break;
-
-    // запускаем рост
-    var prod = allProducts.Find(p => p.id == productId);
-    if (prod != null) SelectedCell.Plant(prod);
-}
-
-// уменьшение seed_count на сервере: -1 для productId
-public IEnumerator ConsumeSeedOnServer(int productId, System.Action onOk)
-{
-    if (currentUser == null) yield break;
-
-    var seeds = ParseSeeds(currentUser.seed_count);
-    if (!seeds.ContainsKey(productId) || seeds[productId] <= 0)
+    private IEnumerator HeartbeatCoroutine()
     {
-        Debug.Log("Нет семян");
-        yield break;
+        while (true)
+        {
+            yield return new WaitForSeconds(2f);
+            if (currentUser == null) continue;
+
+            long now = UnixNow();
+            yield return PatchUserField("time_farm", now.ToString());
+
+            string stateJson = BuildGridStateJson();
+            yield return PatchUserField("grid_state", stateJson);
+        }
     }
-    seeds[productId] = Mathf.Max(0, seeds[productId] - 1);
-    currentUser.seed_count = ToJson(seeds);
-
-    string url = $"{backendUsersUrl}/users/{currentUser.id}";
-    string json = JsonUtility.ToJson(new UserUpdateWrapper { seed_count = currentUser.seed_count });
-    byte[] body = Encoding.UTF8.GetBytes(json);
-
-    using (var req = new UnityWebRequest(url, "PUT"))
-    {
-        req.uploadHandler = new UploadHandlerRaw(body);
-        req.downloadHandler = new DownloadHandlerBuffer();
-        req.SetRequestHeader("Content-Type", "application/json");
-
-        yield return req.SendWebRequest();
-
-        if (req.result == UnityWebRequest.Result.Success) onOk?.Invoke();
-        else Debug.LogError($"[Plant] PUT seed_count error: {req.responseCode} {req.error}");
-    }
-}
-
-// ======= ДОБАВИТЬ В СКЛАД (storage_count += delta по id) =======
-public IEnumerator AddToStorage(int productId, int delta)
-{
-    if (currentUser == null) yield break;
-
-    var storage = ParseSeeds(currentUser.storage_count); // тот же формат key/value
-    if (!storage.ContainsKey(productId)) storage[productId] = 0;
-    storage[productId] = Mathf.Max(0, storage[productId] + delta);
-    currentUser.storage_count = ToJson(storage);
-
-    string url = $"{backendUsersUrl}/users/{currentUser.id}";
-    string json = JsonUtility.ToJson(new UserUpdateWrapper { storage_count = currentUser.storage_count });
-    byte[] body = Encoding.UTF8.GetBytes(json);
-
-    using (var req = new UnityWebRequest(url, "PUT"))
-    {
-        req.uploadHandler = new UploadHandlerRaw(body);
-        req.downloadHandler = new DownloadHandlerBuffer();
-        req.SetRequestHeader("Content-Type", "application/json");
-
-        yield return req.SendWebRequest();
-
-        if (req.result != UnityWebRequest.Result.Success)
-            Debug.LogError($"[Storage] PUT error: {req.responseCode} {req.error}");
-    }
-}
-
 
     
-    
-    // ---------------- Users ----------------
+    private void RestoreGridFromServer()
+    {
+        if (string.IsNullOrEmpty(currentUser.grid_state)) return;
+
+        CellStateWrapper w = null;
+        try { w = JsonUtility.FromJson<CellStateWrapper>(currentUser.grid_state); }
+        catch { w = null; }
+
+        if (w == null || w.items == null) return;
+
+        long now = UnixNow();
+
+        // Сколько секунд прошло с последнего сохранения
+        long lastFarm = 0;
+        long.TryParse(currentUser.time_farm, out lastFarm);
+        long delta = now - lastFarm; // прошедшее время
+
+        foreach (var e in w.items)
+        {
+            int idx = e.key - 1;
+            if (idx < 0 || idx >= cells.Count) continue;
+            var cell = cells[idx];
+            if (cell == null) continue;
+
+            if (e.pid > 0 && e.left > 0)
+            {
+                // уменьшаем остаток на прошедшее время
+                long newLeft = e.left - delta;
+                if (newLeft < 0) newLeft = 1; // готово
+
+                var prod = allProducts.Find(p => p.id == e.pid);
+
+                if (newLeft > 1)
+                {
+                    // ещё растёт
+                    cell.RestoreFromState(e.pid, now + newLeft, prod);
+                }
+                else
+                {
+                    // уже готово
+                    cell.RestoreFromState(e.pid, now, prod);
+                }
+            }
+            else
+            {
+                cell.ClearToIdle();
+            }
+        }
+    }
+
+
+
+    private static long UnixNow() =>
+        (long)(DateTime.UtcNow - new DateTime(1970,1,1)).TotalSeconds;
+
+    // ---------- Посадка ----------
+    public IEnumerator PlantInSelectedCell(int productId)
+    {
+        if (SelectedCell == null) yield break;
+
+        bool ok = false;
+        yield return ConsumeSeedOnServer(productId, () => ok = true);
+        if (!ok) yield break;
+
+        var prod = allProducts.Find(p => p.id == productId);
+        if (prod != null)
+        {
+            SelectedCell.Plant(prod);
+            if (plantMenuUI) plantMenuUI.SetActive(false); // закрыть меню посадки
+        }
+    }
+
+    // Списать 1 семя (локально + PATCH seed_count)
+    public IEnumerator ConsumeSeedOnServer(int productId, System.Action onOk)
+    {
+        if (currentUser == null) yield break;
+
+        var seeds = ParseSeeds(currentUser.seed_count);
+        if (!seeds.ContainsKey(productId) || seeds[productId] <= 0)
+        {
+            Debug.Log("Нет семян");
+            yield break;
+        }
+        seeds[productId] = Mathf.Max(0, seeds[productId] - 1);
+        currentUser.seed_count = ToJson(seeds);
+
+        yield return PatchUserField("seed_count", currentUser.seed_count);
+        onOk?.Invoke();
+    }
+
+    // Сбор рыбы → storage_count += delta (локально + PATCH storage_count)
+    public IEnumerator AddToStorage(int productId, int delta)
+    {
+        if (currentUser == null) yield break;
+
+        var storage = ParseSeeds(currentUser.storage_count);
+        if (!storage.ContainsKey(productId)) storage[productId] = 0;
+        storage[productId] = Mathf.Max(0, storage[productId] + delta);
+        currentUser.storage_count = ToJson(storage);
+
+        yield return PatchUserField("storage_count", currentUser.storage_count);
+    }
+
+    // ---------- Users ----------
     private IEnumerator EnsureUserExists()
     {
         string url = $"{backendUsersUrl}/users/{userID}";
@@ -239,16 +312,19 @@ public IEnumerator AddToStorage(int productId, int delta)
         {
             id = userID,
             name = username,
-            ton = 0,
-            lvl_upgrade = 0,
+            ton = 0, 
+            lvl_upgrade = 0, 
             lvl = 1,
-            coin = 100,
+            coin = 100, 
             bezoz = 10,
             ref_count = 0,
             time_farm = "",
             seed_count = "",
-            storage_count = ""
+            storage_count = "",
+            grid_count = 3,
+            grid_state = ""   // <--- NEW
         };
+
 
         string json = JsonUtility.ToJson(payload);
         byte[] body = Encoding.UTF8.GetBytes(json);
@@ -264,7 +340,6 @@ public IEnumerator AddToStorage(int productId, int delta)
             if (req.result == UnityWebRequest.Result.Success || req.responseCode == 201)
             {
                 currentUser = JsonUtility.FromJson<UserDto>(req.downloadHandler.text);
-                Debug.Log(currentUser.id);
                 ApplyUserData();
             }
             else
@@ -276,23 +351,22 @@ public IEnumerator AddToStorage(int productId, int delta)
 
     private void ApplyUserData()
     {
-
         if (currentUser == null) return;
-        money = (float)currentUser.coin;
-        bezoz = (float)currentUser.bezoz;
+        money = currentUser.coin;
+        bezoz = currentUser.bezoz;
         lvl = currentUser.lvl;
         lvl_up = currentUser.lvl_upgrade;
-        
+
         if (usernameText) usernameText.text = currentUser.name;
-        if (moneyText) moneyText.text = money.ToString();
-        if (bezozText) bezozText.text = bezoz.ToString();
-        if (lvlText) lvlText.text = lvl.ToString() + " lvl";
-        if (lvl_up_Text) lvl_up_Text.text = lvl_up.ToString();
+        if (moneyText) moneyText.text = money.ToString(CultureInfo.InvariantCulture);
+        if (bezozText) bezozText.text = bezoz.ToString(CultureInfo.InvariantCulture);
+        if (lvlText) lvlText.text = lvl + " lvl";
+        if (lvl_up_Text) lvl_up_Text.text = lvl_up.ToString(CultureInfo.InvariantCulture);
         if (id_text) id_text.text = userID;
         if (refCountText) refCountText.text = currentUser.ref_count.ToString();
     }
 
-    // ---------------- Products ----------------
+    // ---------- Products ----------
     public IEnumerator FetchAllProducts()
     {
         string url = $"{backendProductsUrl}/products";
@@ -302,20 +376,13 @@ public IEnumerator AddToStorage(int productId, int delta)
 
             if (req.result == UnityWebRequest.Result.Success)
             {
-                Debug.Log("[ProductsAPI] Raw JSON: " + req.downloadHandler.text);
-
                 string json = "{\"items\":" + req.downloadHandler.text + "}";
                 ProductListWrapper wrapper = JsonUtility.FromJson<ProductListWrapper>(json);
 
                 if (wrapper != null && wrapper.items != null)
                 {
                     allProducts = new List<ProductDto>(wrapper.items);
-                    Debug.Log($"[ProductsAPI] Загружено {allProducts.Count} продуктов");
-
-                    foreach (var prod in allProducts)
-                    {
-                        Debug.Log($"Product {prod.id}: {prod.name} | Price={prod.price}");
-                    }
+                    RestoreGridFromServer();
                 }
                 else
                 {
@@ -328,7 +395,6 @@ public IEnumerator AddToStorage(int productId, int delta)
             }
         }
     }
-
 
     public IEnumerator GetProduct(int id, Action<ProductDto> callback)
     {
@@ -375,7 +441,34 @@ public IEnumerator AddToStorage(int productId, int delta)
         }
     }
 
-    // ---------------- Helpers ----------------
+    // ---------- Покупка семян ----------
+    public IEnumerator BuySeedCoroutine(ShopItemScript.ProductDto product)
+    {
+        if (currentUser == null) yield break;
+
+        if (currentUser.coin < product.price)
+        {
+            Debug.Log("Недостаточно монет!");
+            yield break;
+        }
+
+        // локально списываем монеты
+        currentUser.coin -= product.price;
+
+        // локально обновляем seeds
+        Dictionary<int, int> seeds = ParseSeeds(currentUser.seed_count);
+        if (!seeds.ContainsKey(product.id)) seeds[product.id] = 0;
+        seeds[product.id]++;
+        currentUser.seed_count = ToJson(seeds);
+
+        // два PATCH: coin и seed_count (чтобы ничего не перетирать)
+        yield return PatchUserField("coin", currentUser.coin.ToString(CultureInfo.InvariantCulture));
+        yield return PatchUserField("seed_count", currentUser.seed_count);
+
+        ApplyUserData();
+    }
+
+    // ---------- Helpers ----------
     [Serializable] private class ProductListWrapper { public ProductDto[] items; }
 
     public static string GetUsernameFromInitData(string initData)
@@ -430,101 +523,44 @@ public IEnumerator AddToStorage(int productId, int delta)
         public string language_code;
         public string photo_url;
     }
-    
-    
-    
-    public IEnumerator BuySeedCoroutine(ShopItemScript.ProductDto product)
-{
-    if (currentUser == null) yield break;
 
-    if (currentUser.coin < (float)product.price)
+    [Serializable]
+    private class UserUpdateWrapper
     {
-        Debug.Log("Недостаточно монет!");
-        yield break;
+        public float coin;
+        public string seed_count;
+        public string storage_count;
     }
 
-    // списываем монеты
-    currentUser.coin -= (float)product.price;
-
-    // обновляем семена
-    Dictionary<int, int> seeds = ParseSeeds(currentUser.seed_count);
-    if (!seeds.ContainsKey(product.id)) seeds[product.id] = 0;
-    seeds[product.id]++;
-    currentUser.seed_count = ToJson(seeds);
-
-    // отправляем PUT на сервер
-    string url = $"{backendUsersUrl}/users/{currentUser.id}";
-    string json = JsonUtility.ToJson(new UserUpdateWrapper
+    // общий парсер key/value JSON (подходит и для seed_count, и для storage_count)
+    public Dictionary<int, int> ParseSeeds(string json)
     {
-        coin = (float)currentUser.coin,
-        seed_count = currentUser.seed_count
-    });
-    byte[] body = Encoding.UTF8.GetBytes(json);
+        if (string.IsNullOrEmpty(json)) return new Dictionary<int, int>();
+        var w = JsonUtility.FromJson<SeedWrapper>(json);
+        return w != null ? w.ToDict() : new Dictionary<int, int>();
+    }
 
-    using (UnityWebRequest req = new UnityWebRequest(url, "PUT"))
+    [Serializable]
+    private class SeedWrapper
     {
-        req.uploadHandler = new UploadHandlerRaw(body);
-        req.downloadHandler = new DownloadHandlerBuffer();
-        req.SetRequestHeader("Content-Type", "application/json");
-
-        yield return req.SendWebRequest();
-
-        if (req.result == UnityWebRequest.Result.Success)
+        public SeedEntry[] items;
+        public Dictionary<int, int> ToDict()
         {
-            Debug.Log($"Куплено семя {product.name}, всего {seeds[product.id]}");
-            ApplyUserData();
-        }
-        else
-        {
-            Debug.LogError($"Ошибка покупки: {req.responseCode} {req.error}");
+            var dict = new Dictionary<int, int>();
+            if (items == null) return dict;
+            foreach (var e in items) dict[e.key] = e.value;
+            return dict;
         }
     }
-}
 
-[System.Serializable]
-private class UserUpdateWrapper
-{
-    public float coin;
-    public string seed_count;
-    public string storage_count;
-}
+    [Serializable] private class SeedEntry { public int key; public int value; }
 
-// простейший парсер для seed_count JSON
-public Dictionary<int, int> ParseSeeds(string json)
-{
-    if (string.IsNullOrEmpty(json)) return new Dictionary<int, int>();
-    return JsonUtility.FromJson<SeedWrapper>(json).ToDict();
-}
-
-[System.Serializable]
-private class SeedWrapper
-{
-    public SeedEntry[] items;
-    public Dictionary<int, int> ToDict()
+    public string ToJson(Dictionary<int, int> dict)
     {
-        var dict = new Dictionary<int, int>();
-        foreach (var entry in items) dict[entry.key] = entry.value;
-        return dict;
+        var w = new SeedWrapper();
+        var list = new List<SeedEntry>();
+        foreach (var kv in dict) list.Add(new SeedEntry { key = kv.Key, value = kv.Value });
+        w.items = list.ToArray();
+        return JsonUtility.ToJson(w);
     }
-}
-
-[System.Serializable]
-private class SeedEntry
-{
-    public int key;
-    public int value;
-}
-
-public string ToJson(Dictionary<int, int> dict)
-{
-    var wrapper = new SeedWrapper();
-    var list = new List<SeedEntry>();
-    foreach (var kv in dict)
-        list.Add(new SeedEntry { key = kv.Key, value = kv.Value });
-    wrapper.items = list.ToArray();
-    return JsonUtility.ToJson(wrapper);
-}
-
-
-
 }
