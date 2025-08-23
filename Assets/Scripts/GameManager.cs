@@ -26,7 +26,7 @@ public class GameManager : MonoBehaviour
     [Header("User Interface")]
     [SerializeField] private Text usernameText;
     [SerializeField] private Text refCountText;
-    [SerializeField] private Text moneyText;
+    [SerializeField] public Text moneyText;
     [SerializeField] private Text bezozText;
     [SerializeField] private Text lvlText;
     [SerializeField] private Text lvl_up_Text;
@@ -38,6 +38,13 @@ public class GameManager : MonoBehaviour
     public List<FarmCell> cells = new();    // назначь в инспекторе
 
     private Coroutine heartbeatCo;
+
+    public GridController GridController;
+    
+    
+    
+    public UserDto currentUser;
+    public List<ProductDto> allProducts = new();
 
     // ---------------- DTO ----------------
     [Serializable]
@@ -73,8 +80,7 @@ public class GameManager : MonoBehaviour
         public string image_ready_link;
     }
 
-    public UserDto currentUser;
-    public List<ProductDto> allProducts = new();
+
 
     private void Start()
     {
@@ -143,7 +149,7 @@ public class GameManager : MonoBehaviour
         public PatchBody(string f, string v) { field = f; value = v; }
     }
 
-    private IEnumerator PatchUserField(string field, string valueAsString)
+    public IEnumerator PatchUserField(string field, string valueAsString)
     {
         string url = $"{backendUsersUrl}/users/{currentUser.id}";
         var body = new PatchBody(field, valueAsString);
@@ -364,6 +370,9 @@ public class GameManager : MonoBehaviour
         if (lvl_up_Text) lvl_up_Text.text = lvl_up.ToString(CultureInfo.InvariantCulture);
         if (id_text) id_text.text = userID;
         if (refCountText) refCountText.text = currentUser.ref_count.ToString();
+        
+        
+        GridController.StartGrid();
     }
 
     // ---------- Products ----------

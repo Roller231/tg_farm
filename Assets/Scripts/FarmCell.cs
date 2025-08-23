@@ -1,5 +1,6 @@
 using System;
 using System.Collections;
+using System.Globalization;
 using UnityEngine;
 using UnityEngine.EventSystems;
 using UnityEngine.Networking;
@@ -11,6 +12,7 @@ public class FarmCell : MonoBehaviour, IPointerClickHandler
     public Text timerText;          // текст таймера
     public Image readyImage;        // картинка готового продукта
     public GameObject busyOverlay;  // рамка «занято»
+    public GameObject imageBuyBtn;  // рамка «занято»
 
     [Header("State (runtime)")]
     public bool isBusy;
@@ -18,6 +20,11 @@ public class FarmCell : MonoBehaviour, IPointerClickHandler
     public int productId;
     public long endUnix;       // когда закончится (unix)
 
+    
+    public int priceGrid;
+    public int needLvl;
+
+    
     private GameManager gm;
     private Coroutine timerCo;
 
@@ -89,7 +96,7 @@ public class FarmCell : MonoBehaviour, IPointerClickHandler
 
     public void OnPointerClick(PointerEventData eventData)
     {
-        if (!isBusy)
+        if (!isBusy && !isLocked)
         {
             if (gm != null)
             {
@@ -162,6 +169,42 @@ public class FarmCell : MonoBehaviour, IPointerClickHandler
         }
     }
 
+    public void OpenGrid()
+    {
+        GetComponent<Button>().interactable = true;
+        imageBuyBtn.SetActive(false);
+        isLocked = false;
+    }
+
+    public void BuyGridFunc()
+    {
+        StartCoroutine(BuyGrid());
+    }
+    
+    public IEnumerator BuyGrid()
+    {
+        if (gm.money >= priceGrid && gm.lvl >= needLvl)
+        {
+            gm.money -= priceGrid;
+            
+            GetComponent<Button>().interactable = true;
+            imageBuyBtn.SetActive(false);
+            isLocked = false;
+            gm.currentUser.grid_count++;
+            Debug.Log(gm.currentUser.grid_count);
+
+            gm.moneyText.text = gm.money.ToString();
+            
+            yield return gm.PatchUserField("grid_count", gm.currentUser.grid_count.ToString(CultureInfo.InvariantCulture));
+            yield return gm.PatchUserField("coin", gm.money.ToString(CultureInfo.InvariantCulture));
+            
+            
+        }
+    }
+
+
+    
+    
     private static long UnixNow() =>
         (long)(DateTime.UtcNow - new DateTime(1970, 1, 1)).TotalSeconds;
 }
