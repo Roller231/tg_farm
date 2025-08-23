@@ -3476,6 +3476,7 @@ GameObject:
   - component: {fileID: 737947133}
   - component: {fileID: 737947135}
   - component: {fileID: 737947134}
+  - component: {fileID: 737947136}
   m_Layer: 5
   m_Name: MainPanel
   m_TagString: Untagged
@@ -3557,6 +3558,18 @@ CanvasRenderer:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 737947132}
   m_CullTransparentMesh: 1
+--- !u!114 &737947136
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 737947132}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 763265cd94604a0448a2d23d656af095, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
 --- !u!1 &750330351
 GameObject:
   m_ObjectHideFlags: 0
@@ -4935,10 +4948,6 @@ PrefabInstance:
       propertyPath: m_Name
       value: setka1 (3)
       objectReference: {fileID: 0}
-    - target: {fileID: 196951748093171519, guid: 103239613b1fcbd4c8386f545c83096a, type: 3}
-      propertyPath: m_Interactable
-      value: 0
-      objectReference: {fileID: 0}
     - target: {fileID: 1780355496406306360, guid: 103239613b1fcbd4c8386f545c83096a, type: 3}
       propertyPath: m_Pivot.x
       value: 0.5
@@ -5764,10 +5773,6 @@ PrefabInstance:
     - target: {fileID: 173155861922118287, guid: 103239613b1fcbd4c8386f545c83096a, type: 3}
       propertyPath: m_Name
       value: setka1 (4)
-      objectReference: {fileID: 0}
-    - target: {fileID: 196951748093171519, guid: 103239613b1fcbd4c8386f545c83096a, type: 3}
-      propertyPath: m_Interactable
-      value: 0
       objectReference: {fileID: 0}
     - target: {fileID: 1780355496406306360, guid: 103239613b1fcbd4c8386f545c83096a, type: 3}
       propertyPath: m_Pivot.x
