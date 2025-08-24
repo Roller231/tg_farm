@@ -355,7 +355,7 @@ public class GameManager : MonoBehaviour
         }
     }
 
-    private void ApplyUserData()
+    public void ApplyUserData()
     {
         if (currentUser == null) return;
         money = currentUser.coin;
