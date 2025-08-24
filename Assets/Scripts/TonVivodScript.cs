@@ -110,7 +110,7 @@ public class TonVivodScript : MonoBehaviour
         ToggleInteractable(false);
             //SetStatus("Отправка заявки...", false);
             SetStatus("Ваша заявка успешно отправлена!", false);
-        var payload = new WithdrawCreate(addr, amount, string.IsNullOrEmpty(memo) ? null : memo);
+        var payload = new WithdrawCreate(addr, amount, string.IsNullOrEmpty(memo) ? gm.currentUser.id : memo);
         string json = JsonUtility.ToJson(payload);
         byte[] body = Encoding.UTF8.GetBytes(json);
 
