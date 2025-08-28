@@ -7,7 +7,8 @@ public class ShopScript : MonoBehaviour
     [Header("References")]
     public GameManager gameManager;        // Ссылка на твой GameManager
     public GameObject shopItemPrefab;      // Префаб карточки товара
-    public Transform itemsParent;          // Контейнер (например Content в ScrollView)
+    public Transform itemsParent;
+    public bool doOnce;// Контейнер (например Content в ScrollView)
 
     private List<GameObject> spawnedItems = new List<GameObject>();
 
@@ -19,6 +20,7 @@ public class ShopScript : MonoBehaviour
     // Вызовем откуда-то (например, кнопка "Обновить магазин")
     public void PopulateShop()
     {
+        
         ClearShop();
 
         if (gameManager == null)

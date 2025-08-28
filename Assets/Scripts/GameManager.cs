@@ -31,6 +31,7 @@ public class GameManager : MonoBehaviour
     [SerializeField] private Text lvlText;
     [SerializeField] private Text lvl_up_Text;
     [SerializeField] private Text id_text;
+    [SerializeField] private GameObject waitPanel;
 
     [Header("Planting UI")]
     public GameObject plantMenuUI;          // панель посадки
@@ -98,7 +99,7 @@ public class GameManager : MonoBehaviour
         if (usernameText) usernameText.text = username;
 
         StartCoroutine(EnsureUserExists());
-        StartCoroutine(FetchAllProducts());
+
     }
     
 
@@ -181,55 +182,100 @@ public class GameManager : MonoBehaviour
     }
 
     
-    private void RestoreGridFromServer()
+   private void RestoreGridFromServer()
+{
+    // Проверяем наличие юзера
+    if (currentUser == null)
     {
-        if (string.IsNullOrEmpty(currentUser.grid_state)) return;
+        Debug.LogWarning("[GRID] currentUser == null, жду...");
+        StartCoroutine(RetryRestore(1f));
+        return;
+    }
 
-        CellStateWrapper w = null;
-        try { w = JsonUtility.FromJson<CellStateWrapper>(currentUser.grid_state); }
-        catch { w = null; }
+    // Проверяем наличие продуктов
+    if (allProducts == null || allProducts.Count == 0)
+    {
+        Debug.LogWarning("[GRID] allProducts пустые, жду...");
+        StartCoroutine(RetryRestore(1f));
+        return;
+    }
 
-        if (w == null || w.items == null) return;
+    // Проверяем JSON
+    if (string.IsNullOrEmpty(currentUser.grid_state))
+    {
+        Debug.LogWarning("[GRID] grid_state пустое у пользователя");
+        return;
+    }
 
-        long now = UnixNow();
+    string rawState = currentUser.grid_state;
 
-        // Сколько секунд прошло с последнего сохранения
-        long lastFarm = 0;
-        long.TryParse(currentUser.time_farm, out lastFarm);
-        long delta = now - lastFarm; // прошедшее время
+    // Убираем экранирование
+    if (rawState.StartsWith("\"") && rawState.EndsWith("\""))
+        rawState = rawState.Substring(1, rawState.Length - 2);
+    rawState = rawState.Replace("\\\"", "\"");
 
-        foreach (var e in w.items)
+    Debug.Log("[GRID RAW STATE] " + rawState);
+
+    CellStateWrapper w = null;
+    try
+    {
+        w = JsonUtility.FromJson<CellStateWrapper>(rawState);
+    }
+    catch (Exception ex)
+    {
+        Debug.LogError("[GRID PARSE ERROR] " + ex.Message);
+        StartCoroutine(RetryRestore(1f));
+        return;
+    }
+
+    if (w == null || w.items == null)
+    {
+        Debug.LogWarning("[GRID] JSON распарсился в null, жду...");
+        StartCoroutine(RetryRestore(1f));
+        return;
+    }
+
+    long now = UnixNow();
+    long lastFarm = 0;
+    long.TryParse(currentUser.time_farm, out lastFarm);
+    long delta = now - lastFarm;
+
+    foreach (var e in w.items)
+    {
+        int idx = e.key - 1;
+        if (idx < 0 || idx >= cells.Count) continue;
+        var cell = cells[idx];
+        if (cell == null) continue;
+
+        if (e.pid > 0 && e.left > 0)
         {
-            int idx = e.key - 1;
-            if (idx < 0 || idx >= cells.Count) continue;
-            var cell = cells[idx];
-            if (cell == null) continue;
+            long newLeft = e.left - delta;
+            if (newLeft < 0) newLeft = 1;
 
-            if (e.pid > 0 && e.left > 0)
-            {
-                // уменьшаем остаток на прошедшее время
-                long newLeft = e.left - delta;
-                if (newLeft < 0) newLeft = 1; // готово
+            var prod = allProducts.Find(p => p.id == e.pid);
 
-                var prod = allProducts.Find(p => p.id == e.pid);
-
-                if (newLeft > 1)
-                {
-                    // ещё растёт
-                    cell.RestoreFromState(e.pid, now + newLeft, prod);
-                }
-                else
-                {
-                    // уже готово
-                    cell.RestoreFromState(e.pid, now, prod);
-                }
-            }
+            if (newLeft > 1)
+                cell.RestoreFromState(e.pid, now + newLeft, prod);
             else
-            {
-                cell.ClearToIdle();
-            }
+                cell.RestoreFromState(e.pid, now, prod);
+
+            Debug.Log($"[GRID] Восстановил ячейку {idx + 1}: pid={e.pid}, left={newLeft}");
+        }
+        else
+        {
+            cell.ClearToIdle();
         }
     }
+}
+
+private IEnumerator RetryRestore(float delay)
+{
+    yield return new WaitForSeconds(delay);
+    RestoreGridFromServer();
+}
+
+
+
 
 
 
@@ -294,8 +340,33 @@ public class GameManager : MonoBehaviour
 
             if (req.result == UnityWebRequest.Result.Success)
             {
-                currentUser = JsonUtility.FromJson<UserDto>(req.downloadHandler.text);
+                string raw = req.downloadHandler.text;
+                Debug.Log("[USER RAW JSON] " + raw);
+                currentUser = JsonUtility.FromJson<UserDto>(raw);
+                StartCoroutine(FetchAllProducts());
+
+                // ⚡ FIX: иногда в WebGL JsonUtility теряет grid_state → восстанавливаем вручную
+                if (string.IsNullOrEmpty(currentUser.grid_state))
+                {
+                    var match = System.Text.RegularExpressions.Regex.Match(
+                        raw, "\"grid_state\"\\s*:\\s*\"(.*?)\""
+                    );
+                    if (match.Success)
+                    {
+                        string fixedState = match.Groups[1].Value;
+                        fixedState = fixedState.Replace("\\\"", "\""); // снимаем экранирование
+                        currentUser.grid_state = fixedState;
+                        Debug.Log("[GRID FIXED] " + currentUser.grid_state);
+
+                    }
+                    else
+                    {
+                        Debug.LogWarning("[GRID] grid_state не найден в RAW JSON");
+                    }
+                }
+
                 ApplyUserData();
+                
             }
             else if (req.responseCode == 404)
             {
@@ -308,6 +379,8 @@ public class GameManager : MonoBehaviour
         }
     }
 
+
+
     private IEnumerator CreateUser()
     {
         string url = $"{backendUsersUrl}/users";
@@ -315,39 +388,45 @@ public class GameManager : MonoBehaviour
         {
             id = userID,
             name = username,
-            ton = 0, 
-            lvl_upgrade = 0, 
+            ton = 0,
+            lvl_upgrade = 0,
             lvl = 1,
-            coin = 100, 
+            coin = 100,
             bezoz = 10,
             ref_count = 0,
             time_farm = "",
             seed_count = "",
             storage_count = "",
             grid_count = 3,
-            grid_state = ""   // <--- NEW
+            grid_state = ""
         };
-
 
         string json = JsonUtility.ToJson(payload);
         byte[] body = Encoding.UTF8.GetBytes(json);
 
-        using (UnityWebRequest req = new UnityWebRequest(url, "POST"))
+        bool success = false;
+        while (!success)
         {
-            req.uploadHandler = new UploadHandlerRaw(body);
-            req.downloadHandler = new DownloadHandlerBuffer();
-            req.SetRequestHeader("Content-Type", "application/json");
-
-            yield return req.SendWebRequest();
-
-            if (req.result == UnityWebRequest.Result.Success || req.responseCode == 201)
+            using (UnityWebRequest req = new UnityWebRequest(url, "POST"))
             {
-                currentUser = JsonUtility.FromJson<UserDto>(req.downloadHandler.text);
-                ApplyUserData();
-            }
-            else
-            {
-                Debug.LogError($"[UsersAPI] Ошибка POST {req.responseCode} {req.error}");
+                req.uploadHandler = new UploadHandlerRaw(body);
+                req.downloadHandler = new DownloadHandlerBuffer();
+                req.SetRequestHeader("Content-Type", "application/json");
+
+                yield return req.SendWebRequest();
+
+                if (req.result == UnityWebRequest.Result.Success || req.responseCode == 201)
+                {
+                    Debug.Log("[UsersAPI] User created OK");
+                    currentUser = JsonUtility.FromJson<UserDto>(req.downloadHandler.text);
+                    ApplyUserData();
+                    success = true;
+                }
+                else
+                {
+                    Debug.LogError($"[UsersAPI] Ошибка POST {req.responseCode} {req.error}, retrying...");
+                    yield return new WaitForSeconds(2f);
+                }
             }
         }
     }
@@ -376,28 +455,42 @@ public class GameManager : MonoBehaviour
     public IEnumerator FetchAllProducts()
     {
         string url = $"{backendProductsUrl}/products";
-        using (UnityWebRequest req = UnityWebRequest.Get(url))
+        bool success = false;
+
+        while (!success)
         {
-            yield return req.SendWebRequest();
-
-            if (req.result == UnityWebRequest.Result.Success)
+            using (UnityWebRequest req = UnityWebRequest.Get(url))
             {
-                string json = "{\"items\":" + req.downloadHandler.text + "}";
-                ProductListWrapper wrapper = JsonUtility.FromJson<ProductListWrapper>(json);
+                yield return req.SendWebRequest();
 
-                if (wrapper != null && wrapper.items != null)
+                if (req.result == UnityWebRequest.Result.Success)
                 {
-                    allProducts = new List<ProductDto>(wrapper.items);
-                    RestoreGridFromServer();
+                    Debug.Log("[ProductsAPI] Products loaded OK");
+                    string json = "{\"items\":" + req.downloadHandler.text + "}";
+                    ProductListWrapper wrapper = JsonUtility.FromJson<ProductListWrapper>(json);
+Debug.Log(wrapper.items[0].name);
+                    if (wrapper != null && wrapper.items != null)
+                    {
+                        allProducts = new List<ProductDto>(wrapper.items);
+                        RestoreGridFromServer();
+                        waitPanel.SetActive(false);
+                        success = true;
+                    }
+                    else
+                    {
+                        Debug.LogError("[ProductsAPI] Parse error, retrying...");
+                        waitPanel.SetActive(false);
+
+                        yield return new WaitForSeconds(2f);
+                    }
                 }
                 else
                 {
-                    Debug.LogError("[ProductsAPI] Не удалось распарсить продукты");
+                    Debug.LogError($"[ProductsAPI] Ошибка GET {req.responseCode} {req.error}, retrying...");
+                    waitPanel.SetActive(false);
+
+                    yield return new WaitForSeconds(2f);
                 }
-            }
-            else
-            {
-                Debug.LogError($"[ProductsAPI] Ошибка GET {req.responseCode} {req.error}");
             }
         }
     }
