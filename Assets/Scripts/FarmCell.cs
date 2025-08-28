@@ -65,7 +65,7 @@ public class FarmCell : MonoBehaviour, IPointerClickHandler
             // растение уже готово
             if (timerText)
             {
-                timerText.text = "ГОТОВО";
+                timerText.text = "";
                 timerText.gameObject.SetActive(true);
             }
 
@@ -120,7 +120,7 @@ public class FarmCell : MonoBehaviour, IPointerClickHandler
         }
 
         // растение готово
-        if (timerText) timerText.text = "ГОТОВО";
+        if (timerText) timerText.text = "";
 
         var prod = gm != null ? gm.allProducts.Find(p => p.id == productId) : null;
         if (prod != null && !string.IsNullOrEmpty(prod.image_ready_link))

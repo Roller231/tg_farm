@@ -531,7 +531,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 02fb0a0ebc0c2e6428765fbbb04b70e5, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  withdrawApiBase: http://127.0.0.1:8005
+  withdrawApiBase: https://farmbeach.st8.ru/api
   tonAddressInput: {fileID: 36784469}
   amountInput: {fileID: 128721915}
   memoInput: {fileID: 1897727427}
@@ -5320,8 +5320,8 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 76824bdea00d16646b9e95733642c0dd, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  backendUsersUrl: http://localhost:8000
-  backendProductsUrl: http://localhost:8008
+  backendUsersUrl: https://farmbeach.st8.ru/api
+  backendProductsUrl: https://farmbeach.st8.ru/api
   userID: 1
   username: 123312
   money: 0
@@ -5398,7 +5398,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 2d58d75365ec8d44fa0c98ae3db54c10, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  backendUrl: http://127.0.0.1:8009/admindata
+  backendUrl: https://farmbeach.st8.ru/api/admindata
 --- !u!1001 &729578000
 PrefabInstance:
   m_ObjectHideFlags: 0

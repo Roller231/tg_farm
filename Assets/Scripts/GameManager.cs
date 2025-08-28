@@ -102,10 +102,7 @@ public class GameManager : MonoBehaviour
     }
     
 
-    private void OnDestroy()
-    {
-        if (heartbeatCo != null) StopCoroutine(heartbeatCo);
-    }
+
 
     [Serializable] private class CellStateEntry { public int key; public int pid; public int left; }
     [Serializable] private class CellStateWrapper { public CellStateEntry[] items; }
