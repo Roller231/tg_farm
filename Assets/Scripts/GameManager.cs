@@ -331,53 +331,67 @@ private IEnumerator RetryRestore(float delay)
     }
 
     // ---------- Users ----------
-    private IEnumerator EnsureUserExists()
+  private IEnumerator EnsureUserExists()
+{
+    string url = $"{backendUsersUrl}/users/{userID}";
+    using (UnityWebRequest req = UnityWebRequest.Get(url))
     {
-        string url = $"{backendUsersUrl}/users/{userID}";
-        using (UnityWebRequest req = UnityWebRequest.Get(url))
+        yield return req.SendWebRequest();
+
+        if (req.result == UnityWebRequest.Result.Success)
         {
-            yield return req.SendWebRequest();
+            string raw = req.downloadHandler.text;
+            Debug.Log("[USER RAW JSON] " + raw);
 
-            if (req.result == UnityWebRequest.Result.Success)
+            currentUser = JsonUtility.FromJson<UserDto>(raw);
+            StartCoroutine(FetchAllProducts());
+            // ⚡ фикс: иногда storage_count или seed_count приходят как "0"/"null"
+            if (string.IsNullOrEmpty(currentUser.storage_count) 
+                || currentUser.storage_count == "0" 
+                || currentUser.storage_count == "null")
             {
-                string raw = req.downloadHandler.text;
-                Debug.Log("[USER RAW JSON] " + raw);
-                currentUser = JsonUtility.FromJson<UserDto>(raw);
-                StartCoroutine(FetchAllProducts());
+                currentUser.storage_count = "{\"items\":[]}";
+            }
 
-                // ⚡ FIX: иногда в WebGL JsonUtility теряет grid_state → восстанавливаем вручную
-                if (string.IsNullOrEmpty(currentUser.grid_state))
+            if (string.IsNullOrEmpty(currentUser.seed_count) 
+                || currentUser.seed_count == "0" 
+                || currentUser.seed_count == "null")
+            {
+                currentUser.seed_count = "{\"items\":[]}";
+            }
+
+            // ⚡ фикс: grid_state
+            if (string.IsNullOrEmpty(currentUser.grid_state))
+            {
+                var match = System.Text.RegularExpressions.Regex.Match(
+                    raw, "\"grid_state\"\\s*:\\s*\"(.*?)\""
+                );
+                if (match.Success)
                 {
-                    var match = System.Text.RegularExpressions.Regex.Match(
-                        raw, "\"grid_state\"\\s*:\\s*\"(.*?)\""
-                    );
-                    if (match.Success)
-                    {
-                        string fixedState = match.Groups[1].Value;
-                        fixedState = fixedState.Replace("\\\"", "\""); // снимаем экранирование
-                        currentUser.grid_state = fixedState;
-                        Debug.Log("[GRID FIXED] " + currentUser.grid_state);
-
-                    }
-                    else
-                    {
-                        Debug.LogWarning("[GRID] grid_state не найден в RAW JSON");
-                    }
+                    string fixedState = match.Groups[1].Value;
+                    fixedState = fixedState.Replace("\\\"", "\"");
+                    currentUser.grid_state = fixedState;
+                    Debug.Log("[GRID FIXED] " + currentUser.grid_state);
                 }
+                else
+                {
+                    Debug.LogWarning("[GRID] grid_state не найден в RAW JSON");
+                }
+            }
 
-                ApplyUserData();
-                
-            }
-            else if (req.responseCode == 404)
-            {
-                yield return StartCoroutine(CreateUser());
-            }
-            else
-            {
-                Debug.LogError($"[UsersAPI] Ошибка GET {req.responseCode} {req.error}");
-            }
+            ApplyUserData();
+        }
+        else if (req.responseCode == 404)
+        {
+            yield return StartCoroutine(CreateUser());
+        }
+        else
+        {
+            Debug.LogError($"[UsersAPI] Ошибка GET {req.responseCode} {req.error}");
         }
     }
+}
+
 
 
 
@@ -635,9 +649,23 @@ Debug.Log(wrapper.items[0].name);
     public Dictionary<int, int> ParseSeeds(string json)
     {
         if (string.IsNullOrEmpty(json)) return new Dictionary<int, int>();
-        var w = JsonUtility.FromJson<SeedWrapper>(json);
-        return w != null ? w.ToDict() : new Dictionary<int, int>();
+
+        string s = json.Trim();
+        if (s == "0" || s == "null" || s == "\"0\"" || s == "\"null\"")
+            return new Dictionary<int, int>();
+
+        try
+        {
+            var w = JsonUtility.FromJson<SeedWrapper>(s);
+            return w != null ? w.ToDict() : new Dictionary<int, int>();
+        }
+        catch
+        {
+            Debug.LogWarning("[ParseSeeds] Некорректный JSON: " + json);
+            return new Dictionary<int, int>();
+        }
     }
+
 
     [Serializable]
     private class SeedWrapper
