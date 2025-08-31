@@ -40,6 +40,11 @@ public class StorageItemScript : MonoBehaviour
 
         int totalCoins = Mathf.RoundToInt(product.sell_price * count);
 
+        for (int i = 0; i < count; i++)
+        {
+            StartCoroutine( gm.AddLvl(product.exp));
+        }
+        
         // Обновляем деньги у игрока
         gm.money += totalCoins;
         gm.currentUser.coin = gm.money;
@@ -49,6 +54,8 @@ public class StorageItemScript : MonoBehaviour
         storage[product.id] = 0;
         gm.currentUser.storage_count = gm.ToJson(storage);
 
+
+        
         // Отправляем на сервер
         gm.StartCoroutine(gm.PatchUserField("coin", gm.currentUser.coin.ToString(System.Globalization.CultureInfo.InvariantCulture)));
         gm.StartCoroutine(gm.PatchUserField("storage_count", gm.currentUser.storage_count));

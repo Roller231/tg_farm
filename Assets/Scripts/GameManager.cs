@@ -65,6 +65,7 @@ public class GameManager : MonoBehaviour
         
         public int grid_count = 3;     // если используешь
         public string grid_state = ""; // <--- NEW
+        public string refId;
     }
 
     [Serializable]
@@ -79,7 +80,10 @@ public class GameManager : MonoBehaviour
         public int time;
         public string image_seed_link;
         public string image_ready_link;
+
+        public float exp;   // ← новое поле
     }
+
 
 
 
@@ -101,8 +105,39 @@ public class GameManager : MonoBehaviour
         StartCoroutine(EnsureUserExists());
 
     }
-    
 
+    public IEnumerator AddLvl(float lvlToAdd)
+    {
+        currentUser.lvl_upgrade += lvlToAdd;
+        
+
+
+
+        if (currentUser.lvl_upgrade > 1)
+        {
+            currentUser.lvl_upgrade--;
+            currentUser.lvl++;
+            Debug.Log(currentUser.lvl);
+            
+            StartCoroutine( PatchUserField("lvl_upgrade", currentUser.lvl_upgrade.ToString()));
+            yield return PatchUserField("lvl", currentUser.lvl.ToString());
+            ApplyUserData();
+        }
+        else if (currentUser.lvl_upgrade == 1f)
+        {
+            currentUser.lvl_upgrade = 0;
+            currentUser.lvl++;
+            
+            StartCoroutine( PatchUserField("lvl_upgrade", currentUser.lvl_upgrade.ToString()));
+            yield return PatchUserField("lvl", currentUser.lvl.ToString());
+            ApplyUserData();
+        }
+        ApplyUserData();
+
+        yield return PatchUserField("lvl_upgrade", currentUser.lvl_upgrade.ToString());
+        
+        
+    }
 
 
     [Serializable] private class CellStateEntry { public int key; public int pid; public int left; }
@@ -412,7 +447,8 @@ private IEnumerator RetryRestore(float delay)
             seed_count = "",
             storage_count = "",
             grid_count = 3,
-            grid_state = ""
+            grid_state = "",
+            refId = ""
         };
 
         string json = JsonUtility.ToJson(payload);
