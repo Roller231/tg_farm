@@ -13,6 +13,7 @@ public class PlantMenuItemScript : MonoBehaviour
     public Text timeText;
     public Text needLvlText;      // отображаем требуемый уровень
     public Text haveCountText;    // сколько семян есть у игрока
+    public Text expText;    // сколько семян есть у игрока
     public Button plantButton;
 
     [Header("Images (optional)")]
@@ -29,6 +30,7 @@ public class PlantMenuItemScript : MonoBehaviour
         public int time;              // сек
         public int lvl_for_buy;       // требуется для покупки/посадки
         public string image_seed_link;
+        public float exp;   // ← новое поле
     }
 
     /// <summary>
@@ -60,6 +62,8 @@ public class PlantMenuItemScript : MonoBehaviour
         if (nameText) nameText.text = product.name;
         if (timeText) timeText.text = $"Время роста: {product.time} сек.";
         if (needLvlText) needLvlText.text = $"Нужен уровень: {product.lvl_for_buy}";
+        if (expText) expText.text = $"{product.exp * 100} XP";
+
 
         // доступные семена
         var seeds = gameManager.ParseSeeds(gameManager.currentUser.seed_count);

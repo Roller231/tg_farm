@@ -45,7 +45,8 @@ public class PlantMenuScript : MonoBehaviour
                     name = product.name,
                     time = product.time,
                     lvl_for_buy = product.lvl_for_buy,
-                    image_seed_link = product.image_seed_link
+                    image_seed_link = product.image_seed_link,
+                    exp = product.exp
                 };
 
                 item.SetProduct(dto, gameManager);

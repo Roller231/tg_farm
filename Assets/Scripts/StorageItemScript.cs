@@ -42,7 +42,6 @@ public class StorageItemScript : MonoBehaviour
 
         for (int i = 0; i < count; i++)
         {
-            StartCoroutine( gm.AddLvl(product.exp));
         }
         
         // Обновляем деньги у игрока

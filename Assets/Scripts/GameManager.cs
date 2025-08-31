@@ -17,6 +17,7 @@ public class GameManager : MonoBehaviour
     [Header("User (runtime)")]
     public string userID = "1";
     public string username = "Unknown";
+    public string firstName = ""; 
     public float money = 0f;
     public float bezoz = 0f;
     public int lvl = 0;
@@ -47,12 +48,12 @@ public class GameManager : MonoBehaviour
     public UserDto currentUser;
     public List<ProductDto> allProducts = new();
 
-    // ---------------- DTO ----------------
     [Serializable]
     public class UserDto
     {
         public string id;
         public string name;
+        public string firstName;  
         public float ton;
         public float lvl_upgrade;
         public int lvl;
@@ -62,11 +63,11 @@ public class GameManager : MonoBehaviour
         public string time_farm;
         public string seed_count;
         public string storage_count;
-        
-        public int grid_count = 3;     // если используешь
-        public string grid_state = ""; // <--- NEW
+        public int grid_count = 3;
+        public string grid_state = "";
         public string refId;
     }
+
 
     [Serializable]
     public class ProductDto
@@ -94,17 +95,38 @@ public class GameManager : MonoBehaviour
 
         userID = GetUserIdFromInitData(TelegramWebApp.InitData).ToString();
         username = GetUsernameFromInitData(JsonUtility.ToJson(TelegramWebApp.InitDataUnsafe));
+        firstName = GetFirstNameFromInitData(JsonUtility.ToJson(TelegramWebApp.InitDataUnsafe)); // <--- NEW
 
         foreach (var c in cells)
             if (c != null) c.Init(this);
 
         heartbeatCo = StartCoroutine(HeartbeatCoroutine());
-        
-        if (usernameText) usernameText.text = username;
+
+        if (usernameText) usernameText.text = firstName;
 
         StartCoroutine(EnsureUserExists());
-
     }
+
+    
+    
+    
+    public static string GetFirstNameFromInitData(string initData)
+    {
+        try
+        {
+            TelegramInitData data = JsonUtility.FromJson<TelegramInitData>(initData);
+            // Telegram присылает first_name; если пусто — вернём пустую строку
+            return data != null && data.user != null && !string.IsNullOrEmpty(data.user.first_name)
+                ? data.user.first_name
+                : "";
+        }
+        catch (Exception ex)
+        {
+            Debug.Log($"Error extracting FirstName: {ex.Message}");
+            return "nick";
+        }
+    }
+
 
     public IEnumerator AddLvl(float lvlToAdd)
     {
@@ -357,6 +379,11 @@ private IEnumerator RetryRestore(float delay)
     {
         if (currentUser == null) yield break;
 
+        Debug.Log(productId);
+        
+        StartCoroutine( AddLvl(allProducts[productId-1].exp));
+
+        
         var storage = ParseSeeds(currentUser.storage_count);
         if (!storage.ContainsKey(productId)) storage[productId] = 0;
         storage[productId] = Mathf.Max(0, storage[productId] + delta);
@@ -437,6 +464,7 @@ private IEnumerator RetryRestore(float delay)
         {
             id = userID,
             name = username,
+            firstName = firstName,   // <--- NEW
             ton = 0,
             lvl_upgrade = 0,
             lvl = 1,
@@ -489,7 +517,7 @@ private IEnumerator RetryRestore(float delay)
         lvl = currentUser.lvl;
         lvl_up = currentUser.lvl_upgrade;
 
-        if (usernameText) usernameText.text = currentUser.name;
+        if (usernameText) usernameText.text = currentUser.firstName;
         if (moneyText) moneyText.text = money.ToString(CultureInfo.InvariantCulture);
         if (bezozText) bezozText.text = bezoz.ToString(CultureInfo.InvariantCulture);
         if (lvlText) lvlText.text = lvl + " lvl";

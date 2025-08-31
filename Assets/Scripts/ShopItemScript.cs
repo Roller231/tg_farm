@@ -15,6 +15,7 @@ public class ShopItemScript : MonoBehaviour
     public Text lvlForBuyText;
     public Text timeText;
     public Text seedCountText; 
+    public Text expText; 
 
     [Header("Image UI References")]
     public Image seedImage;
@@ -43,6 +44,8 @@ public class ShopItemScript : MonoBehaviour
         public int time;
         public string image_seed_link;
         public string image_ready_link;
+
+        public float exp;   // ← новое поле
     }
 
     // Назначение продукта + геймменеджера
@@ -70,6 +73,7 @@ public class ShopItemScript : MonoBehaviour
         if (speedPriceText) speedPriceText.text = $"Ускорение: {product.speed_price}";
         if (lvlForBuyText) lvlForBuyText.text = $"Нужен уровень: {product.lvl_for_buy}";
         if (timeText) timeText.text = $"Время роста: {product.time} сек.";
+        if (expText) expText.text = $"{product.exp * 100} XP";
 
         if (imageSeedLinkText) imageSeedLinkText.text = product.image_seed_link;
         if (imageReadyLinkText) imageReadyLinkText.text = product.image_ready_link;

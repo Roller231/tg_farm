@@ -9,22 +9,24 @@ using UnityEngine.UI;
 public class FarmCell : MonoBehaviour, IPointerClickHandler
 {
     [Header("UI")]
-    public Text timerText;          // текст таймера
-    public Image readyImage;        // картинка готового продукта
-    public GameObject busyOverlay;  // рамка «занято»
-    public GameObject imageBuyBtn;  // рамка «занято»
+    public Text timerText;           // текст таймера
+    public Image readyImage;         // картинка готового продукта
+    public GameObject busyOverlay;   // рамка «занято»
+    public GameObject imageBuyBtn;   // кнопка покупки клетки/рамка
+    public Image progressImage;      // <--- ПРОГРЕСС-БАР (Image, type = Filled)
+    public GameObject progressImageParent;      // <--- ПРОГРЕСС-БАР (Image, type = Filled)
 
     [Header("State (runtime)")]
     public bool isBusy;
     public bool isLocked;
     public int productId;
-    public long endUnix;       // когда закончится (unix)
+    public long endUnix;             // когда закончится (unix)
+    private long startUnix;          // когда началось (unix)
+    private int totalDuration;       // полная длительность выращивания (сек)
 
-    
     public int priceGrid;
     public int needLvl;
 
-    
     private GameManager gm;
     private Coroutine timerCo;
 
@@ -47,22 +49,51 @@ public class FarmCell : MonoBehaviour, IPointerClickHandler
         productId = pid;
         endUnix = endUnixAbs;
 
+        // если знаем продукт — восстановим длительность/старт
+        if (prodIfKnown != null)
+        {
+            totalDuration = Mathf.Max(0, prodIfKnown.time);
+            startUnix = endUnix - totalDuration;
+        }
+        else
+        {
+            totalDuration = 0;
+            startUnix = 0;
+        }
+
         if (busyOverlay) busyOverlay.SetActive(true);
 
         long now = UnixNow();
 
         if (endUnix > now)
         {
-            // растение растёт
+            // ещё растёт
             if (timerText) timerText.gameObject.SetActive(true);
             if (readyImage) readyImage.gameObject.SetActive(false);
+
+            // прогресс-бар включаем, если знаем длительность
+            if (progressImage)
+            {
+                if (totalDuration > 0)
+                {
+                    float remaining = Mathf.Max(0, (float)(endUnix - now));
+                    float fill = 1f - (remaining / Mathf.Max(1, totalDuration));
+                    progressImage.fillAmount = Mathf.Clamp01(fill);
+                    progressImageParent.SetActive(true);
+                }
+                else
+                {
+                    progressImage.fillAmount = 0f;
+                    progressImageParent.SetActive(false);
+                }
+            }
 
             if (timerCo != null) StopCoroutine(timerCo);
             timerCo = StartCoroutine(TimerLoop());
         }
         else
         {
-            // растение уже готово
+            // уже готово
             if (timerText)
             {
                 timerText.text = "";
@@ -74,7 +105,12 @@ public class FarmCell : MonoBehaviour, IPointerClickHandler
 
             if (readyImage) readyImage.gameObject.SetActive(true);
 
-            // ⚡ важный фикс: НЕ запускаем TimerLoop и НЕ сбрасываем
+            // прогресс-бар прячем
+            if (progressImage)
+            {
+                progressImage.fillAmount = 1f;
+                progressImageParent.SetActive(false);
+            }
         }
     }
 
@@ -84,11 +120,21 @@ public class FarmCell : MonoBehaviour, IPointerClickHandler
 
         isBusy = true;
         productId = prod.id;
-        endUnix = UnixNow() + prod.time;
+        totalDuration = Mathf.Max(0, prod.time);
+        endUnix = UnixNow() + totalDuration;
+        startUnix = endUnix - totalDuration;
 
         if (busyOverlay) busyOverlay.SetActive(true);
         if (timerText) timerText.gameObject.SetActive(true);
         if (readyImage) readyImage.gameObject.SetActive(false);
+
+        // прогресс-бар стартует с 0
+        if (progressImage)
+        {
+            progressImage.fillAmount = 0f;
+            
+            progressImageParent.SetActive(totalDuration > 0);
+        }
 
         if (timerCo != null) StopCoroutine(timerCo);
         timerCo = StartCoroutine(TimerLoop());
@@ -113,9 +159,31 @@ public class FarmCell : MonoBehaviour, IPointerClickHandler
 
     private IEnumerator TimerLoop()
     {
-        while (UnixNow() < endUnix)
+        while (true)
         {
-            if (timerText) timerText.text = (endUnix - UnixNow()) + "s";
+            long now = UnixNow();
+            if (now >= endUnix) break;
+
+            // таймер
+            if (timerText) timerText.text = (endUnix - now) + "s";
+
+            // прогресс
+            if (progressImage)
+            {
+                if (totalDuration > 0)
+                {
+                    float remaining = Mathf.Max(0, (float)(endUnix - now));
+                    float fill = 1f - (remaining / Mathf.Max(1, totalDuration));
+                    progressImage.fillAmount = Mathf.Clamp01(fill);
+                    if (!progressImage.gameObject.activeSelf) progressImageParent.SetActive(true);
+                }
+                else
+                {
+                    progressImage.fillAmount = 0f;
+                    progressImageParent.SetActive(false);
+                }
+            }
+
             yield return new WaitForSeconds(1f);
         }
 
@@ -127,12 +195,18 @@ public class FarmCell : MonoBehaviour, IPointerClickHandler
             yield return StartCoroutine(LoadReadyImage(prod.image_ready_link));
 
         if (readyImage) readyImage.gameObject.SetActive(true);
+
+        // прогресс-бар скрываем
+        if (progressImage)
+        {
+            progressImage.fillAmount = 1f;
+            progressImageParent.SetActive(false);
+        }
     }
 
     private IEnumerator Harvest()
     {
         yield return gm.AddToStorage(productId, 1);
-
         ClearToIdle();
     }
 
@@ -141,6 +215,8 @@ public class FarmCell : MonoBehaviour, IPointerClickHandler
         isBusy = false;
         productId = 0;
         endUnix = 0;
+        startUnix = 0;
+        totalDuration = 0;
 
         if (timerCo != null) StopCoroutine(timerCo);
         timerCo = null;
@@ -148,6 +224,12 @@ public class FarmCell : MonoBehaviour, IPointerClickHandler
         if (busyOverlay) busyOverlay.SetActive(false);
         if (timerText) { timerText.text = ""; timerText.gameObject.SetActive(false); }
         if (readyImage) { readyImage.sprite = null; readyImage.gameObject.SetActive(false); }
+
+        if (progressImage)
+        {
+            progressImage.fillAmount = 0f;
+            progressImageParent.gameObject.SetActive(false);
+        }
     }
 
     private IEnumerator LoadReadyImage(string url)
@@ -180,13 +262,13 @@ public class FarmCell : MonoBehaviour, IPointerClickHandler
     {
         StartCoroutine(BuyGrid());
     }
-    
+
     public IEnumerator BuyGrid()
     {
         if (gm.money >= priceGrid && gm.lvl >= needLvl)
         {
             gm.money -= priceGrid;
-            
+
             GetComponent<Button>().interactable = true;
             imageBuyBtn.SetActive(false);
             isLocked = false;
@@ -194,17 +276,12 @@ public class FarmCell : MonoBehaviour, IPointerClickHandler
             Debug.Log(gm.currentUser.grid_count);
 
             gm.moneyText.text = gm.money.ToString();
-            
+
             yield return gm.PatchUserField("grid_count", gm.currentUser.grid_count.ToString(CultureInfo.InvariantCulture));
             yield return gm.PatchUserField("coin", gm.money.ToString(CultureInfo.InvariantCulture));
-            
-            
         }
     }
 
-
-    
-    
     private static long UnixNow() =>
         (long)(DateTime.UtcNow - new DateTime(1970, 1, 1)).TotalSeconds;
 }
