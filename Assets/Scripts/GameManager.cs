@@ -79,10 +79,11 @@ public class GameManager : MonoBehaviour
         public float speed_price;
         public int lvl_for_buy;
         public int time;
+        public float exp;   // ← новое поле
         public string image_seed_link;
         public string image_ready_link;
 
-        public float exp;   // ← новое поле
+
     }
 
 
@@ -105,6 +106,10 @@ public class GameManager : MonoBehaviour
         if (usernameText) usernameText.text = firstName;
 
         StartCoroutine(EnsureUserExists());
+        foreach (var VARIABLE in allProducts)
+        {
+            Debug.Log(VARIABLE);
+        }
     }
 
     
@@ -498,6 +503,7 @@ private IEnumerator RetryRestore(float delay)
                     Debug.Log("[UsersAPI] User created OK");
                     currentUser = JsonUtility.FromJson<UserDto>(req.downloadHandler.text);
                     ApplyUserData();
+                    waitPanel.SetActive(false);
                     success = true;
                 }
                 else
@@ -532,7 +538,7 @@ private IEnumerator RetryRestore(float delay)
     // ---------- Products ----------
     public IEnumerator FetchAllProducts()
     {
-        string url = $"{backendProductsUrl}/products";
+        string url = $"{backendProductsUrl}/products.php";
         bool success = false;
 
         while (!success)
@@ -546,13 +552,22 @@ private IEnumerator RetryRestore(float delay)
                     Debug.Log("[ProductsAPI] Products loaded OK");
                     string json = "{\"items\":" + req.downloadHandler.text + "}";
                     ProductListWrapper wrapper = JsonUtility.FromJson<ProductListWrapper>(json);
-Debug.Log(wrapper.items[0].name);
+Debug.Log(req.downloadHandler.text);
                     if (wrapper != null && wrapper.items != null)
                     {
                         allProducts = new List<ProductDto>(wrapper.items);
+                        Debug.Log(allProducts[0].exp);
                         RestoreGridFromServer();
                         waitPanel.SetActive(false);
                         success = true;
+                        
+                        
+                        foreach (var VARIABLE in allProducts)
+                        {
+                            Debug.Log(VARIABLE.exp);
+                        }
+                        
+
                     }
                     else
                     {
@@ -662,6 +677,19 @@ Debug.Log(wrapper.items[0].name);
         }
     }
 
+    public static string GetFPFromInitData(string initData)
+    {
+        try
+        {
+            TelegramInitData data = JsonUtility.FromJson<TelegramInitData>(initData);
+            return !string.IsNullOrEmpty(data.user.first_name) ? data.user.first_name : "Unknown";
+        }
+        catch (Exception ex)
+        {
+            Debug.Log($"Error extracting Username: {ex.Message}");
+            return "Unknown";
+        }
+    }
     public static long GetUserIdFromInitData(string initData)
     {
         try

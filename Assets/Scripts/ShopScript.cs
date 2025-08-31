@@ -50,9 +50,10 @@ public class ShopScript : MonoBehaviour
                     speed_price = (float)product.speed_price,
                     lvl_for_buy = product.lvl_for_buy,
                     time = product.time,
+                    exp = (float) product.exp,
                     image_seed_link = product.image_seed_link,
-                    image_ready_link = product.image_ready_link,
-                    exp = product.exp
+                    image_ready_link = product.image_ready_link
+
                 };
 
                 // ✅ передаём и продукт, и gameManager

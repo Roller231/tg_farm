@@ -28,9 +28,9 @@ public class PlantMenuItemScript : MonoBehaviour
         public int id;
         public string name;
         public int time;              // сек
+        public float exp;   // ← новое поле
         public int lvl_for_buy;       // требуется для покупки/посадки
         public string image_seed_link;
-        public float exp;   // ← новое поле
     }
 
     /// <summary>
@@ -62,6 +62,7 @@ public class PlantMenuItemScript : MonoBehaviour
         if (nameText) nameText.text = product.name;
         if (timeText) timeText.text = $"Время роста: {product.time} сек.";
         if (needLvlText) needLvlText.text = $"Нужен уровень: {product.lvl_for_buy}";
+        Debug.Log(product.exp);
         if (expText) expText.text = $"{product.exp * 100} XP";
 
 

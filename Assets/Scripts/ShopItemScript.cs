@@ -42,10 +42,11 @@ public class ShopItemScript : MonoBehaviour
         public float speed_price;
         public int lvl_for_buy;
         public int time;
+        public float exp;   // ← новое поле
         public string image_seed_link;
         public string image_ready_link;
 
-        public float exp;   // ← новое поле
+
     }
 
     // Назначение продукта + геймменеджера
