@@ -538,7 +538,7 @@ private IEnumerator RetryRestore(float delay)
     // ---------- Products ----------
     public IEnumerator FetchAllProducts()
     {
-        string url = $"{backendProductsUrl}/products.php";
+        string url = $"{backendProductsUrl}/products";
         bool success = false;
 
         while (!success)

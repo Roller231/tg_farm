@@ -33,7 +33,7 @@ public class FriendManager : MonoBehaviour
     public event Action<string> OnLoadError;
 
 
-    private void Start()
+    private void OnEnable()
     {
         TelegramWebApp.Ready();
 
