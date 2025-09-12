@@ -616,37 +616,45 @@ public class GameManager : MonoBehaviour
     }
 
     // ====== Houses (3 дома) ======
-    public HousesWrapper _housesCache;
-    public HousesWrapper d;
-    public HousesWrapper GetHouses()
+    private HousesWrapper _housesCache;
+
+    private HousesWrapper GetHouses()
     {
-        if (_housesCache != null) return _housesCache;
+        // если пользователь ещё не загрузился — возвращаем пустой контейнер
+        if (currentUser == null || string.IsNullOrEmpty(currentUser.houses))
+            return new HousesWrapper { items = new List<House>() };
+
+        // если есть актуальный кэш — возвращаем его
+        if (_housesCache != null)
+            return _housesCache;
+
         try
         {
-            if (string.IsNullOrEmpty(currentUser.houses))
-                currentUser.houses = "{\"items\":[]}";
+            // парсим JSON домов
             _housesCache = JsonUtility.FromJson<HousesWrapper>(currentUser.houses);
+
+            // если JsonUtility вернул null — создаём пустой список
             if (_housesCache == null || _housesCache.items == null)
-                _housesCache = new HousesWrapper();
-            
-            // НОРМАЛИЗАЦИЯ: проставим type по id и гарантируем timers != null
+                _housesCache = new HousesWrapper { items = new List<House>() };
+
+            // нормализация (ставим тип и гарантируем timers != null)
             foreach (var h in _housesCache.items)
             {
-                
                 if (string.IsNullOrEmpty(h.type))
                     h.type = TypeForHouseId(h.id);
                 if (h.timers == null)
                     h.timers = new List<HouseTimer>();
             }
         }
-        catch
+        catch (Exception e)
         {
-            _housesCache = new HousesWrapper();
+            Debug.LogError($"[HOUSES] Ошибка парсинга JSON: {e.Message}\n{currentUser.houses}");
+            _housesCache = new HousesWrapper { items = new List<House>() };
         }
 
-        d = _housesCache;
         return _housesCache;
     }
+
     
     public void CheckHousesAndDo(int houseId, Action<House> onActive)
     {
@@ -740,9 +748,18 @@ public class GameManager : MonoBehaviour
 
     public string HousesToJson()
     {
-        if (_housesCache == null) _housesCache = new HousesWrapper();
+        if (_housesCache == null)
+            _housesCache = new HousesWrapper { items = new List<House>() };
+
         return JsonUtility.ToJson(_housesCache);
     }
+
+    public void RefreshHousesFromJson(string housesJson)
+    {
+        currentUser.houses = housesJson;
+        _housesCache = null; // сбрасываем кэш, чтобы заново распарсить
+    }
+
 
     // публичный вызов из UI
     public void BuyHouseButton(int houseId) => StartCoroutine(BuyHouse(houseId));
@@ -750,128 +767,69 @@ public class GameManager : MonoBehaviour
     // покупка дома: списываем coin, ставим active=true и инициируем таймеры
     public IEnumerator BuyHouse(int houseId)
     {
-        if (string.IsNullOrEmpty(currentUser.houses))
-        {
-            Debug.LogError("[HOUSE] currentUser.houses пусто");
-            yield break;
-        }
+        var houses = GetHouses();
+        var h = houses.items.Find(x => x.id == houseId);
+        if (h == null) { Debug.LogError($"[HOUSE] не найден id={houseId}"); yield break; }
 
-        HousesWrapper wrapper = JsonUtility.FromJson<HousesWrapper>(currentUser.houses);
-        if (wrapper == null || wrapper.items == null || wrapper.items.Count == 0)
-        {
-            Debug.LogError("[HOUSE] В houses нет домов");
-            yield break;
-        }
+        if (currentUser.lvl < h.lvl_for_buy) { Debug.Log($"[HOUSE] Нужен уровень {h.lvl_for_buy}"); yield break; }
+        if (currentUser.coin < h.price) { Debug.Log($"[HOUSE] Недостаточно монет ({h.price})"); yield break; }
+        if (h.active) { Debug.Log("[HOUSE] Уже куплен"); yield break; }
 
-        var h = wrapper.items.Find(x => x.id == houseId);
-        if (h == null)
-        {
-            Debug.LogError($"[HOUSE] не найден id={houseId}");
-            yield break;
-        }
-
-        if (currentUser.lvl < h.lvl_for_buy)
-        {
-            Debug.Log($"[HOUSE] Нужен уровень {h.lvl_for_buy}");
-            yield break;
-        }
-
-
-
-        if (h.active)
-        {
-            Debug.Log("[HOUSE] Уже куплен");
-            yield break;
-        }
-
-        // списываем монеты
         currentUser.coin -= h.price;
-        money = currentUser.coin;
-
-        // активируем дом
         h.active = true;
 
-        // загружаем продукты для дома
-        List<ProductDto> src =
-            h.type == "home1" ? home1Products :
-            h.type == "home2" ? home2Products :
-            h.type == "home3" ? home3Products : new List<ProductDto>();
-
-
-
-        // сохраняем обратно JSON
-        currentUser.houses = JsonUtility.ToJson(wrapper);
-
-        // обновляем UI и сервер
         yield return PatchUserField("coin", currentUser.coin.ToString(CultureInfo.InvariantCulture));
-        yield return PatchUserField("houses", currentUser.houses);
-
+        SaveHouses(); // 👈 сразу обновляем JSON в currentUser и сервере
         ApplyUserData();
-
-        Debug.Log($"[HOUSE] Куплен дом {houseId} за {h.price} монет");
     }
+
+
+    private void SaveHouses()
+    {
+        if (_housesCache == null)
+            _housesCache = new HousesWrapper { items = new List<House>() };
+
+        string json = JsonUtility.ToJson(_housesCache);
+        currentUser.houses = json;   // обновляем runtime-модель
+        StartCoroutine(PatchUserField("houses", json)); // сразу шлём на сервер
+    }
+
 
 
 
     // тикаем таймеры; при достижении 0 — вызываем выплату и перезапускаем
     private bool TickHouses(int deltaSec)
     {
-        if (currentUser == null || string.IsNullOrEmpty(currentUser.houses))
-        {
-            Debug.LogWarning("[HOUSE] Tick пропущен — нет currentUser или houses JSON пуст");
-            return false;
-        }
-
-        // Парсим JSON домов
-        var wrapper = JsonUtility.FromJson<HousesWrapper>(currentUser.houses);
-        if (wrapper == null || wrapper.items == null || wrapper.items.Count == 0)
-        {
-            Debug.LogWarning("[HOUSE] Tick пропущен — JSON домов не распарсился");
-            return false;
-        }
+        if (currentUser == null) return false;
+        var houses = GetHouses();
+        if (houses.items == null || houses.items.Count == 0) return false;
 
         bool changed = false;
 
-        foreach (var h in wrapper.items)
+        foreach (var h in houses.items)
         {
-            Debug.Log($"[HOUSE] Обработка дома {h.id}, active={h.active}, timers={(h.timers != null ? h.timers.Count : 0)}");
-
             if (!h.active || h.timers == null) continue;
 
             for (int i = 0; i < h.timers.Count; i++)
             {
                 var t = h.timers[i];
-
-                if (t.left <= 0)
-                {
-                    t.left = GetCycleTimeForProduct(t.pid);
-                    Debug.Log($"[HOUSE] Дом {h.id}, продукт {t.pid}: таймер был пуст, установлен {t.left} сек");
-                }
-
                 t.left -= deltaSec;
-                Debug.Log($"[HOUSE] Дом {h.id}, продукт {t.pid}: осталось {t.left} сек");
-
                 if (t.left <= 0)
                 {
-                    Debug.Log($"[HOUSE] Дом {h.id}, продукт {t.pid}: время вышло, начисляем TON!");
                     StartCoroutine(HousePayout(h.id, t.pid));
-
                     t.left = GetCycleTimeForProduct(t.pid);
-                    Debug.Log($"[HOUSE] Дом {h.id}, продукт {t.pid}: таймер перезапущен на {t.left} сек");
                     changed = true;
                 }
             }
         }
 
-        if (changed)
-        {
-            currentUser.houses = JsonUtility.ToJson(wrapper);
-            StartCoroutine(PatchUserField("houses", currentUser.houses));
-            Debug.Log("[HOUSE] JSON домов обновлён и отправлен на сервер");
-        }
-
+        if (changed) SaveHouses(); // 👈 тут обновляем
         return changed;
     }
+
+
+
+
 
 
 
@@ -886,18 +844,30 @@ public class GameManager : MonoBehaviour
     private IEnumerator HousePayout(int houseId, int productId)
     {
         string url = $"{backendUsersUrl}/users/{currentUser.id}/houses/payout?house_id={houseId}&product_id={productId}";
+        Debug.Log($"[HOUSE PAYOUT] {url}");
+
         using (var req = UnityWebRequest.PostWwwForm(url, ""))
         {
             yield return req.SendWebRequest();
 
             if (req.result == UnityWebRequest.Result.Success)
             {
+                string raw = req.downloadHandler.text;
+                Debug.Log($"[HOUSE PAYOUT] Ответ: {raw}");
                 try
                 {
-                    var resp = JsonUtility.FromJson<TonResp>(req.downloadHandler.text);
-                    if (resp != null) currentUser.ton = resp.ton;
+                    var resp = JsonUtility.FromJson<TonResp>(raw);
+                    if (resp != null)
+                    {
+                        currentUser.ton = resp.ton;
+                        ApplyUserData();
+                        Debug.Log($"[HOUSE PAYOUT] Новый TON = {currentUser.ton}");
+                    }
                 }
-                catch { }
+                catch (Exception e)
+                {
+                    Debug.LogError($"[HOUSE PAYOUT] Ошибка парсинга: {e.Message}");
+                }
             }
             else
             {
@@ -905,6 +875,8 @@ public class GameManager : MonoBehaviour
             }
         }
     }
+
+
 
     // Публичный вызов из UI: добавить продукт в дом
     public void AddProductToHouseButton(int houseId, int productId)
@@ -920,20 +892,8 @@ public class GameManager : MonoBehaviour
     // Добавление продукта в дом (таймер)
     public IEnumerator AddProductToHouse(int houseId, int productId)
     {
-        if (string.IsNullOrEmpty(currentUser.houses))
-        {
-            Debug.LogError("[HOUSE] currentUser.houses пусто");
-            yield break;
-        }
-
-        HousesWrapper wrapper = JsonUtility.FromJson<HousesWrapper>(currentUser.houses);
-        if (wrapper == null || wrapper.items == null || wrapper.items.Count == 0)
-        {
-            Debug.LogError("[HOUSE] JSON houses пустой");
-            yield break;
-        }
-
-        var h = wrapper.items.Find(x => x.id == houseId);
+        var houses = GetHouses();
+        var h = houses.items.Find(x => x.id == houseId);
         if (h == null) { Debug.LogError($"[HOUSE] Дом {houseId} не найден"); yield break; }
         if (!h.active) { Debug.LogError($"[HOUSE] Дом {houseId} не куплен"); yield break; }
 
@@ -943,24 +903,29 @@ public class GameManager : MonoBehaviour
             yield break;
         }
 
-        var prodType = string.IsNullOrEmpty(p.type) ? "" : p.type;
-        if (!string.Equals(prodType, h.type, StringComparison.OrdinalIgnoreCase))
+        var houseType = string.IsNullOrEmpty(h.type) ? TypeForHouseId(h.id) : h.type;
+        if (!string.Equals(p.type, houseType, StringComparison.OrdinalIgnoreCase))
         {
-            Debug.LogError($"[HOUSE] Продукт {p.name} (type='{prodType}') не подходит для дома type='{h.type}'");
+            Debug.LogError($"[HOUSE] Продукт {p.name} не подходит для дома {houseType}");
             yield break;
         }
 
         if (h.timers == null) h.timers = new List<HouseTimer>();
         h.timers.Add(new HouseTimer { pid = productId, left = p.time });
-
-        // сохраняем изменения в JSON
-        currentUser.houses = JsonUtility.ToJson(wrapper);
-
-        // обновляем на сервере
-        yield return PatchUserField("houses", currentUser.houses);
+        
+        // сохраняем в JSON и обновляем кэш
+        SaveHouses();
+        
+        _housesCache = null;
+        GetHouses();
 
         Debug.Log($"[HOUSE] В дом {houseId} добавлен продукт {p.name}");
+
+        SaveHouses(); // 👈 обновляем JSON + currentUser.houses + сервер
     }
+
+
+
 
 
 
