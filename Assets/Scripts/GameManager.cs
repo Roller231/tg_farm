@@ -102,7 +102,7 @@ public class GameManager : MonoBehaviour
         public string type; // "home1" | "home2" | "home3"
         public List<HouseTimer> timers = new();
     }
-    [Serializable] private class HousesWrapper { public List<House> items = new(); }
+    [Serializable] public class HousesWrapper { public List<House> items = new(); }
 
     // ====== Unity ======
     private void Start()
@@ -122,6 +122,8 @@ public class GameManager : MonoBehaviour
         if (usernameText) usernameText.text = firstName;
 
         StartCoroutine(EnsureUserExists());
+        
+
     }
 
     public void DebugPrintHousesActive()
@@ -445,6 +447,10 @@ public class GameManager : MonoBehaviour
                     currentUser.houses = "{\"items\":[]}";
 
                 ApplyUserData();
+                
+                
+                
+                
 
                 // продукты: сначала базовые (type == ""), затем для домов
                 yield return StartCoroutine(FetchProductsByType("", list => allProducts = list));
@@ -549,6 +555,8 @@ public class GameManager : MonoBehaviour
         if (refCountText) refCountText.text = currentUser.ref_count.ToString();
 
         if (GridController) GridController.StartGrid();
+        
+        //SetCount(1);
     }
 
     // ====== Products by type ======
@@ -604,8 +612,9 @@ public class GameManager : MonoBehaviour
     }
 
     // ====== Houses (3 дома) ======
-    private HousesWrapper _housesCache;
-    private HousesWrapper GetHouses()
+    public HousesWrapper _housesCache;
+    public HousesWrapper d;
+    public HousesWrapper GetHouses()
     {
         if (_housesCache != null) return _housesCache;
         try
@@ -615,10 +624,11 @@ public class GameManager : MonoBehaviour
             _housesCache = JsonUtility.FromJson<HousesWrapper>(currentUser.houses);
             if (_housesCache == null || _housesCache.items == null)
                 _housesCache = new HousesWrapper();
-
+            
             // НОРМАЛИЗАЦИЯ: проставим type по id и гарантируем timers != null
             foreach (var h in _housesCache.items)
             {
+                
                 if (string.IsNullOrEmpty(h.type))
                     h.type = TypeForHouseId(h.id);
                 if (h.timers == null)
@@ -629,8 +639,86 @@ public class GameManager : MonoBehaviour
         {
             _housesCache = new HousesWrapper();
         }
+
+        d = _housesCache;
         return _housesCache;
     }
+    
+    public void CheckHousesAndDo(int houseId, Action<House> onActive)
+    {
+        if (string.IsNullOrEmpty(currentUser.houses))
+        {
+            Debug.LogError("[HOUSE] currentUser.houses пусто");
+            return;
+        }
+
+        HousesWrapper wrapper = JsonUtility.FromJson<HousesWrapper>(currentUser.houses);
+        if (wrapper == null || wrapper.items == null || wrapper.items.Count == 0)
+        {
+            Debug.LogError("[HOUSE] В houses нет домов");
+            return;
+        }
+
+        var house = wrapper.items.Find(x => x.id == houseId);
+        if (house == null)
+        {
+            Debug.LogError($"[HOUSE] Дом с id={houseId} не найден");
+            return;
+        }
+
+        if (house.active)
+        {
+            Debug.Log($"[HOUSE] Дом {houseId} активен ✅");
+            onActive?.Invoke(house); // выполнить действие
+        }
+        else
+        {
+            Debug.Log($"[HOUSE] Дом {houseId} не активен ❌");
+        }
+    }
+
+    
+    public void SetCount(int houseNumber, Text count, GameObject menuBuy, Button buyBtn)
+    {
+        if (string.IsNullOrEmpty(currentUser.houses))
+        {
+            Debug.LogError("[HOUSE] У currentUser.houses пусто");
+            return;
+        }
+
+        // Прямо парсим houses
+        HousesWrapper wrapper = JsonUtility.FromJson<HousesWrapper>(currentUser.houses);
+        if (wrapper == null || wrapper.items == null || wrapper.items.Count == 0)
+        {
+            Debug.LogError("[HOUSE] В houses нет домов");
+            return;
+        }
+
+        var he = wrapper.items.Find(x => x.id == houseNumber);
+        if (he == null)
+        {
+            Debug.LogError($"[HOUSE] Дом с id={houseNumber} не найден");
+            return;
+        }
+
+        // устанавливаем цену
+        count.text = he.price.ToString(CultureInfo.InvariantCulture);
+        menuBuy.SetActive(true);
+
+        if (money >= he.price)
+        {
+            buyBtn.interactable = true;
+            count.color = Color.white;
+        }
+        else
+        {
+            buyBtn.interactable = false;
+            count.color = Color.red;
+        }
+
+        Debug.Log($"[HOUSE] Всего домов: {wrapper.items.Count}, выбран id={houseNumber}, цена={he.price}");
+    }
+
 
     public string HousesToJson()
     {
@@ -644,35 +732,73 @@ public class GameManager : MonoBehaviour
     // покупка дома: списываем coin, ставим active=true и инициируем таймеры
     public IEnumerator BuyHouse(int houseId)
     {
-        var houses = GetHouses();
-        var h = houses.items.Find(x => x.id == houseId);
-        if (h == null) { Debug.LogError($"[HOUSE] не найден id={houseId}"); yield break; }
+        if (string.IsNullOrEmpty(currentUser.houses))
+        {
+            Debug.LogError("[HOUSE] currentUser.houses пусто");
+            yield break;
+        }
 
-        if (currentUser.lvl < h.lvl_for_buy) { Debug.Log($"[HOUSE] Нужен уровень {h.lvl_for_buy}"); yield break; }
-        if (currentUser.coin < h.price) { Debug.Log($"[HOUSE] Недостаточно монет ({h.price})"); yield break; }
-        if (h.active) { Debug.Log("[HOUSE] Уже куплен"); yield break; }
+        HousesWrapper wrapper = JsonUtility.FromJson<HousesWrapper>(currentUser.houses);
+        if (wrapper == null || wrapper.items == null || wrapper.items.Count == 0)
+        {
+            Debug.LogError("[HOUSE] В houses нет домов");
+            yield break;
+        }
 
+        var h = wrapper.items.Find(x => x.id == houseId);
+        if (h == null)
+        {
+            Debug.LogError($"[HOUSE] не найден id={houseId}");
+            yield break;
+        }
+
+        if (currentUser.lvl < h.lvl_for_buy)
+        {
+            Debug.Log($"[HOUSE] Нужен уровень {h.lvl_for_buy}");
+            yield break;
+        }
+
+        if (currentUser.coin < h.price)
+        {
+            Debug.Log($"[HOUSE] Недостаточно монет ({h.price})");
+            yield break;
+        }
+
+        if (h.active)
+        {
+            Debug.Log("[HOUSE] Уже куплен");
+            yield break;
+        }
+
+        // списываем монеты
         currentUser.coin -= h.price;
+        money = currentUser.coin;
+
+        // активируем дом
         h.active = true;
 
-        // Нормализованный тип
-        var hType = string.IsNullOrEmpty(h.type) ? TypeForHouseId(h.id) : h.type;
-
+        // загружаем продукты для дома
         List<ProductDto> src =
-            hType == "home1" ? home1Products :
-            hType == "home2" ? home2Products :
-            hType == "home3" ? home3Products : new List<ProductDto>();
+            h.type == "home1" ? home1Products :
+            h.type == "home2" ? home2Products :
+            h.type == "home3" ? home3Products : new List<ProductDto>();
 
         h.timers.Clear();
         foreach (var p in src)
             h.timers.Add(new HouseTimer { pid = p.id, left = p.time });
-        
 
+        // сохраняем обратно JSON
+        currentUser.houses = JsonUtility.ToJson(wrapper);
 
+        // обновляем UI и сервер
         yield return PatchUserField("coin", currentUser.coin.ToString(CultureInfo.InvariantCulture));
-        yield return PatchUserField("houses", HousesToJson());
+        yield return PatchUserField("houses", currentUser.houses);
+
         ApplyUserData();
+
+        Debug.Log($"[HOUSE] Куплен дом {houseId} за {h.price} монет");
     }
+
 
 
     // тикаем таймеры; при достижении 0 — вызываем выплату и перезапускаем
@@ -754,36 +880,48 @@ public class GameManager : MonoBehaviour
     // Добавление продукта в дом (таймер)
     public IEnumerator AddProductToHouse(int houseId, int productId)
     {
-        var houses = GetHouses();
-        var h = houses.items.Find(x => x.id == houseId);
+        if (string.IsNullOrEmpty(currentUser.houses))
+        {
+            Debug.LogError("[HOUSE] currentUser.houses пусто");
+            yield break;
+        }
+
+        HousesWrapper wrapper = JsonUtility.FromJson<HousesWrapper>(currentUser.houses);
+        if (wrapper == null || wrapper.items == null || wrapper.items.Count == 0)
+        {
+            Debug.LogError("[HOUSE] JSON houses пустой");
+            yield break;
+        }
+
+        var h = wrapper.items.Find(x => x.id == houseId);
         if (h == null) { Debug.LogError($"[HOUSE] Дом {houseId} не найден"); yield break; }
         if (!h.active) { Debug.LogError($"[HOUSE] Дом {houseId} не куплен"); yield break; }
 
-        // Продукт
         if (!productById.TryGetValue(productId, out var p))
         {
             Debug.LogError($"[HOUSE] Продукт {productId} не найден");
             yield break;
         }
 
-        // Нормализуем типы для сравнения
-        var houseType = string.IsNullOrEmpty(h.type) ? TypeForHouseId(h.id) : h.type;
-        var prodType  = string.IsNullOrEmpty(p.type) ? "" : p.type;
-
-        if (!string.Equals(prodType, houseType, StringComparison.OrdinalIgnoreCase))
+        var prodType = string.IsNullOrEmpty(p.type) ? "" : p.type;
+        if (!string.Equals(prodType, h.type, StringComparison.OrdinalIgnoreCase))
         {
-            Debug.LogError($"[HOUSE] Продукт {p.name} (type='{prodType}') не подходит для дома type='{houseType}'");
+            Debug.LogError($"[HOUSE] Продукт {p.name} (type='{prodType}') не подходит для дома type='{h.type}'");
             yield break;
         }
 
         if (h.timers == null) h.timers = new List<HouseTimer>();
         h.timers.Add(new HouseTimer { pid = productId, left = p.time });
 
+        // сохраняем изменения в JSON
+        currentUser.houses = JsonUtility.ToJson(wrapper);
+
+        // обновляем на сервере
+        yield return PatchUserField("houses", currentUser.houses);
+
         Debug.Log($"[HOUSE] В дом {houseId} добавлен продукт {p.name}");
-        string housesJson = HousesToJson();
-        currentUser.houses = housesJson;
-        yield return PatchUserField("houses", housesJson);
     }
+
 
 
     [Serializable] private class TonResp { public float ton; }
