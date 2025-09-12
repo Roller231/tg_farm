@@ -57,8 +57,8 @@ public class BuyHouseScriprt : MonoBehaviour
     public void BuyHouseBTN()
     {
 
-            gm.currentUser.coin -= Int16.Parse(count.text);
-            gm.money = gm.currentUser.coin;
+            //gm.currentUser.coin -= Int16.Parse(count.text);
+            //gm.money = gm.currentUser.coin;
             gm.ApplyUserData();
             
             StartCoroutine(gm.PatchUserField("coin", gm.currentUser.coin.ToString(CultureInfo.InvariantCulture)));

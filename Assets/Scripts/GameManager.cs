@@ -33,6 +33,8 @@ public class GameManager : MonoBehaviour
     [SerializeField] private Text lvl_up_Text;
     [SerializeField] private Text id_text;
     [SerializeField] private GameObject waitPanel;
+    [SerializeField] private Image lvlProgressBar;
+
 
     [Header("Planting UI")]
     public GameObject plantMenuUI;
@@ -553,6 +555,8 @@ public class GameManager : MonoBehaviour
         if (lvl_up_Text) lvl_up_Text.text = lvl_up.ToString(CultureInfo.InvariantCulture);
         if (id_text) id_text.text = userID;
         if (refCountText) refCountText.text = currentUser.ref_count.ToString();
+        if (lvlProgressBar) lvlProgressBar.fillAmount = lvl_up;
+
 
         if (GridController) GridController.StartGrid();
         
@@ -705,7 +709,7 @@ public class GameManager : MonoBehaviour
         count.text = he.price.ToString(CultureInfo.InvariantCulture);
         menuBuy.SetActive(true);
 
-        if (money >= he.price)
+        if (money >= he.price )
         {
             buyBtn.interactable = true;
             count.color = Color.white;
@@ -715,6 +719,20 @@ public class GameManager : MonoBehaviour
             buyBtn.interactable = false;
             count.color = Color.red;
         }
+
+        if (lvl < he.lvl_for_buy)
+        {
+            buyBtn.interactable = false;
+            count.color = Color.red;
+            count.text = "Нужен lvl " + he.lvl_for_buy;
+        }
+        
+        else
+        {
+            buyBtn.interactable = true;
+            count.color = Color.white;
+        }
+        
 
         Debug.Log($"[HOUSE] Всего домов: {wrapper.items.Count}, выбран id={houseNumber}, цена={he.price}");
     }
@@ -758,11 +776,7 @@ public class GameManager : MonoBehaviour
             yield break;
         }
 
-        if (currentUser.coin < h.price)
-        {
-            Debug.Log($"[HOUSE] Недостаточно монет ({h.price})");
-            yield break;
-        }
+
 
         if (h.active)
         {
@@ -783,9 +797,7 @@ public class GameManager : MonoBehaviour
             h.type == "home2" ? home2Products :
             h.type == "home3" ? home3Products : new List<ProductDto>();
 
-        h.timers.Clear();
-        foreach (var p in src)
-            h.timers.Add(new HouseTimer { pid = p.id, left = p.time });
+
 
         // сохраняем обратно JSON
         currentUser.houses = JsonUtility.ToJson(wrapper);
@@ -804,37 +816,65 @@ public class GameManager : MonoBehaviour
     // тикаем таймеры; при достижении 0 — вызываем выплату и перезапускаем
     private bool TickHouses(int deltaSec)
     {
-        if (currentUser == null) return false;
-        var houses = GetHouses();
-        if (houses.items == null || houses.items.Count == 0) return false;
+        if (currentUser == null || string.IsNullOrEmpty(currentUser.houses))
+        {
+            Debug.LogWarning("[HOUSE] Tick пропущен — нет currentUser или houses JSON пуст");
+            return false;
+        }
+
+        // Парсим JSON домов
+        var wrapper = JsonUtility.FromJson<HousesWrapper>(currentUser.houses);
+        if (wrapper == null || wrapper.items == null || wrapper.items.Count == 0)
+        {
+            Debug.LogWarning("[HOUSE] Tick пропущен — JSON домов не распарсился");
+            return false;
+        }
 
         bool changed = false;
 
-        foreach (var h in houses.items)
+        foreach (var h in wrapper.items)
         {
+            Debug.Log($"[HOUSE] Обработка дома {h.id}, active={h.active}, timers={(h.timers != null ? h.timers.Count : 0)}");
+
             if (!h.active || h.timers == null) continue;
 
             for (int i = 0; i < h.timers.Count; i++)
             {
                 var t = h.timers[i];
+
                 if (t.left <= 0)
                 {
-                    // безопасно перезапустить (если вдруг была отрицательная)
                     t.left = GetCycleTimeForProduct(t.pid);
+                    Debug.Log($"[HOUSE] Дом {h.id}, продукт {t.pid}: таймер был пуст, установлен {t.left} сек");
                 }
 
                 t.left -= deltaSec;
+                Debug.Log($"[HOUSE] Дом {h.id}, продукт {t.pid}: осталось {t.left} сек");
+
                 if (t.left <= 0)
                 {
-                    // payout и перезапуск
+                    Debug.Log($"[HOUSE] Дом {h.id}, продукт {t.pid}: время вышло, начисляем TON!");
                     StartCoroutine(HousePayout(h.id, t.pid));
-                    t.left = GetCycleTimeForProduct(t.pid); // новый цикл
+
+                    t.left = GetCycleTimeForProduct(t.pid);
+                    Debug.Log($"[HOUSE] Дом {h.id}, продукт {t.pid}: таймер перезапущен на {t.left} сек");
                     changed = true;
                 }
             }
         }
+
+        if (changed)
+        {
+            currentUser.houses = JsonUtility.ToJson(wrapper);
+            StartCoroutine(PatchUserField("houses", currentUser.houses));
+            Debug.Log("[HOUSE] JSON домов обновлён и отправлен на сервер");
+        }
+
         return changed;
     }
+
+
+
 
     private int GetCycleTimeForProduct(int pid)
     {

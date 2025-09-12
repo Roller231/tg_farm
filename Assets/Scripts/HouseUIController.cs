@@ -71,7 +71,7 @@ public class HouseUIController : MonoBehaviour
     {
         if (card != null)
         {
-            card.SetLocked(false, "");
+            card.SetLocked(false, "Купить");
             var btn = card.GetComponentInChildren<Button>(true);
             if (btn != null) btn.interactable = true;
         }

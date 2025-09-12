@@ -2173,6 +2173,7 @@ GameObject:
   - component: {fileID: 311181314}
   - component: {fileID: 311181313}
   - component: {fileID: 311181315}
+  - component: {fileID: 311181316}
   m_Layer: 5
   m_Name: Image (1)
   m_TagString: Untagged
@@ -2281,18 +2282,37 @@ MonoBehaviour:
   m_OnClick:
     m_PersistentCalls:
       m_Calls:
-      - m_Target: {fileID: 0}
-        m_TargetAssemblyTypeName: 
-        m_MethodName: 
+      - m_Target: {fileID: 311181316}
+        m_TargetAssemblyTypeName: BuyHouseScriprt, Assembly-CSharp
+        m_MethodName: SetCount
         m_Mode: 1
         m_Arguments:
           m_ObjectArgument: {fileID: 0}
-          m_ObjectArgumentAssemblyTypeName: 
+          m_ObjectArgumentAssemblyTypeName: UnityEngine.Object, UnityEngine
           m_IntArgument: 0
           m_FloatArgument: 0
           m_StringArgument: 
           m_BoolArgument: 0
         m_CallState: 2
+--- !u!114 &311181316
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 311181311}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 5a8db59892244ba42ad5efe2dc356a13, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  gm: {fileID: 720780649}
+  count: {fileID: 1775466936}
+  menuBuy: {fileID: 1626070220}
+  buyBtn: {fileID: 496654940}
+  houseNumber: 3
+  houseObj: {fileID: 414389385}
+  buyObj: {fileID: 311181311}
 --- !u!1 &329912906
 GameObject:
   m_ObjectHideFlags: 0
@@ -3075,7 +3095,7 @@ MonoBehaviour:
     m_PressedTrigger: Pressed
     m_SelectedTrigger: Selected
     m_DisabledTrigger: Disabled
-  m_Interactable: 1
+  m_Interactable: 0
   m_TargetGraphic: {fileID: 414389389}
   m_OnClick:
     m_PersistentCalls:
@@ -3093,7 +3113,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   m_Material: {fileID: 0}
-  m_Color: {r: 1, g: 1, b: 1, a: 0.6509804}
+  m_Color: {r: 1, g: 1, b: 1, a: 1}
   m_RaycastTarget: 1
   m_RaycastPadding: {x: 0, y: 0, z: 0, w: 0}
   m_Maskable: 1
@@ -3799,7 +3819,7 @@ MonoBehaviour:
     m_PressedTrigger: Pressed
     m_SelectedTrigger: Selected
     m_DisabledTrigger: Disabled
-  m_Interactable: 1
+  m_Interactable: 0
   m_TargetGraphic: {fileID: 461394265}
   m_OnClick:
     m_PersistentCalls:
@@ -3817,7 +3837,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   m_Material: {fileID: 0}
-  m_Color: {r: 1, g: 1, b: 1, a: 0.6509804}
+  m_Color: {r: 1, g: 1, b: 1, a: 1}
   m_RaycastTarget: 1
   m_RaycastPadding: {x: 0, y: 0, z: 0, w: 0}
   m_Maskable: 1
@@ -13980,6 +14000,7 @@ GameObject:
   - component: {fileID: 1299351365}
   - component: {fileID: 1299351364}
   - component: {fileID: 1299351366}
+  - component: {fileID: 1299351367}
   m_Layer: 5
   m_Name: Image
   m_TagString: Untagged
@@ -14088,18 +14109,37 @@ MonoBehaviour:
   m_OnClick:
     m_PersistentCalls:
       m_Calls:
-      - m_Target: {fileID: 0}
-        m_TargetAssemblyTypeName: 
-        m_MethodName: 
+      - m_Target: {fileID: 1299351367}
+        m_TargetAssemblyTypeName: BuyHouseScriprt, Assembly-CSharp
+        m_MethodName: SetCount
         m_Mode: 1
         m_Arguments:
           m_ObjectArgument: {fileID: 0}
-          m_ObjectArgumentAssemblyTypeName: 
+          m_ObjectArgumentAssemblyTypeName: UnityEngine.Object, UnityEngine
           m_IntArgument: 0
           m_FloatArgument: 0
           m_StringArgument: 
           m_BoolArgument: 0
         m_CallState: 2
+--- !u!114 &1299351367
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1299351362}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 5a8db59892244ba42ad5efe2dc356a13, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  gm: {fileID: 720780649}
+  count: {fileID: 1775466936}
+  menuBuy: {fileID: 1626070220}
+  buyBtn: {fileID: 496654940}
+  houseNumber: 2
+  houseObj: {fileID: 461394261}
+  buyObj: {fileID: 1299351362}
 --- !u!1 &1299596098
 GameObject:
   m_ObjectHideFlags: 0

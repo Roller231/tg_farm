@@ -27,7 +27,7 @@ public class ProductHouseCard : MonoBehaviour
     // простой кэш, чтобы не тянуть одну и ту же картинку по нескольку раз
     private static readonly Dictionary<string, Sprite> _spriteCache = new();
 
-    public void SetLocked(bool locked, string hint = "Купи дом")
+    public void SetLocked(bool locked, string hint = "Купите дом")
     {
         if (actionButton) actionButton.interactable = !locked;
         if (lockOverlay)
@@ -36,7 +36,7 @@ public class ProductHouseCard : MonoBehaviour
             lockOverlay.blocksRaycasts = locked;
             lockOverlay.interactable = false;
         }
-        if (lockedHintText) lockedHintText.text = locked ? hint : "";
+        if (lockedHintText) lockedHintText.text = locked ? hint : "Купить";
     }
 
     public void SetTexts(string title, float price, int cycleSec, float incomePerCycle, bool payCoin)
