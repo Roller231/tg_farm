@@ -7906,8 +7906,6 @@ MonoBehaviour:
   home1Products: []
   home2Products: []
   home3Products: []
-  _housesCache:
-    items: []
 --- !u!4 &720780650
 Transform:
   m_ObjectHideFlags: 0

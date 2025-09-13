@@ -147,58 +147,81 @@ public class HouseUIController : MonoBehaviour
     }
 
     // ---------- Purchase + Add ----------
-    private IEnumerator HandleBuyAndAddProduct(int productId, bool payCoin, float price, ProductHouseCard cardToDisable)
+ // ---------- Purchase + Add ----------
+private IEnumerator HandleBuyAndAddProduct(int productId, bool payCoin, float price, ProductHouseCard cardToDisable)
+{
+    if (gm == null || gm.currentUser == null) yield break;
+
+    // === Оплата ===
+    if (payCoin)
     {
-        if (gm == null || gm.currentUser == null) yield break;
-
-        // Оплата
-        if (payCoin)
+        if (gm.currentUser.coin < price)
         {
-            if (gm.currentUser.coin < price)
-            {
-                DisableBuyButton(cardToDisable, "Нет монет");
-                yield break;
-            }
-            gm.currentUser.coin -= price;
-            yield return gm.StartCoroutine(gm.PatchUserField("coin", gm.currentUser.coin.ToString(CultureInfo.InvariantCulture)));
-            gm.ApplyUserData();
-        }
-        else
-        {
-            if (gm.currentUser.ton < price)
-            {
-                DisableBuyButton(cardToDisable, "Нет TON");
-                yield break;
-            }
-            gm.currentUser.ton -= price;
-            yield return gm.StartCoroutine(gm.PatchUserField("ton", gm.currentUser.ton.ToString(CultureInfo.InvariantCulture)));
-        }
-
-        // Добавляем продукт в JSON houses
-        var w = JsonUtility.FromJson<HousesWrap>(gm.currentUser.houses);
-        if (w == null || w.items == null)
-        {
-            Debug.LogError("[HOUSE] JSON пуст при добавлении продукта");
+            DisableBuyButton(cardToDisable, "Нет монет");
             yield break;
         }
-
-        var h = w.items.Find(x => x.id == houseId);
-        if (h == null || !h.active)
-        {
-            Debug.LogError($"[HOUSE] Дом {houseId} не найден или не активен");
-            yield break;
-        }
-
-        if (h.timers == null) h.timers = new List<HouseTimer>();
-        h.timers.Add(new HouseTimer { pid = productId, left = GetProductTime(productId) });
-
-        // Сохраняем обратно
-        gm.currentUser.houses = JsonUtility.ToJson(w);
-        yield return gm.StartCoroutine(gm.PatchUserField("houses", gm.currentUser.houses));
-
-        // Помечаем карточку как купленную
-        DisableBuyButton(cardToDisable, "Куплено");
+        gm.currentUser.coin -= price;
+        yield return gm.StartCoroutine(
+            gm.PatchUserField("coin", gm.currentUser.coin.ToString(CultureInfo.InvariantCulture))
+        );
+        gm.ApplyUserData();
     }
+    else
+    {
+        if (gm.currentUser.ton < price)
+        {
+            DisableBuyButton(cardToDisable, "Нет TON");
+            yield break;
+        }
+        gm.currentUser.ton -= price;
+        yield return gm.StartCoroutine(
+            gm.PatchUserField("ton", gm.currentUser.ton.ToString(CultureInfo.InvariantCulture))
+        );
+        gm.ApplyUserData();
+    }
+
+    // === Добавляем продукт в JSON houses ===
+    var w = JsonUtility.FromJson<HousesWrap>(gm.currentUser.houses);
+    if (w == null || w.items == null)
+    {
+        Debug.LogError("[HOUSE] JSON пуст при добавлении продукта");
+        yield break;
+    }
+
+    var h = w.items.Find(x => x.id == houseId);
+    if (h == null || !h.active)
+    {
+        Debug.LogError($"[HOUSE] Дом {houseId} не найден или не активен");
+        yield break;
+    }
+
+    if (h.timers == null) h.timers = new List<HouseTimer>();
+
+    // Проверка на дубликат
+    if (h.timers.Exists(t => t.pid == productId))
+    {
+        Debug.Log($"[HOUSE] Продукт {productId} уже есть в доме {houseId}");
+        DisableBuyButton(cardToDisable, "Куплено");
+        yield break;
+    }
+
+    // Добавляем новый таймер
+    h.timers.Add(new HouseTimer { pid = productId, left = GetProductTime(productId) });
+
+    // Сохраняем обратно
+    gm.currentUser.houses = JsonUtility.ToJson(w);
+    yield return gm.StartCoroutine(gm.PatchUserField("houses", gm.currentUser.houses));
+
+    // === ⚡ ОБНОВЛЯЕМ GameManager сразу ===
+    gm.RefreshHousesFromJson(gm.currentUser.houses);
+    gm.TickHouses(0);          // запускаем тикер мгновенно
+    gm.ApplyUserData();        // обновляем UI
+
+    // === UI ===
+    DisableBuyButton(cardToDisable, "Куплено");
+    Debug.Log($"[HOUSE] В дом {houseId} добавлен продукт {productId}");
+}
+
 
     private int GetProductTime(int pid)
     {

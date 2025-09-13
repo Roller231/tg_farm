@@ -798,11 +798,10 @@ public class GameManager : MonoBehaviour
 
 
     // тикаем таймеры; при достижении 0 — вызываем выплату и перезапускаем
-    private bool TickHouses(int deltaSec)
+    public bool TickHouses(int deltaSec)
     {
         if (currentUser == null) return false;
-    
-        // DON'T reset the cache here - this was causing the issue
+
         var houses = GetHouses();
         if (houses.items == null || houses.items.Count == 0) return false;
 
@@ -820,20 +819,20 @@ public class GameManager : MonoBehaviour
                 {
                     StartCoroutine(HousePayout(h.id, t.pid));
                     t.left = GetCycleTimeForProduct(t.pid);
-                    changed = true;
                 }
+                changed = true; // ✅ даже если просто уменьшили таймер
             }
         }
 
-        if (changed) 
+        if (changed)
         {
-            // Update the cache and save
             _housesCache = houses;
-            SaveHouses();
+            SaveHouses(); // ✅ теперь сохраняется всегда
         }
-    
+
         return changed;
     }
+
 
 
 
@@ -979,7 +978,7 @@ public class GameManager : MonoBehaviour
 
         var houses = GetHouses();
         if (houses.items == null || houses.items.Count == 0) yield break;
-
+        
         bool timersChanged = false;
 
         foreach (var h in houses.items)
