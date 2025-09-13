@@ -801,6 +801,8 @@ public class GameManager : MonoBehaviour
     private bool TickHouses(int deltaSec)
     {
         if (currentUser == null) return false;
+    
+        // DON'T reset the cache here - this was causing the issue
         var houses = GetHouses();
         if (houses.items == null || houses.items.Count == 0) return false;
 
@@ -823,7 +825,13 @@ public class GameManager : MonoBehaviour
             }
         }
 
-        if (changed) SaveHouses(); // 👈 тут обновляем
+        if (changed) 
+        {
+            // Update the cache and save
+            _housesCache = houses;
+            SaveHouses();
+        }
+    
         return changed;
     }
 
@@ -911,17 +919,22 @@ public class GameManager : MonoBehaviour
         }
 
         if (h.timers == null) h.timers = new List<HouseTimer>();
+    
+        // Check if product already exists in timers
+        var existingTimer = h.timers.Find(t => t.pid == productId);
+        if (existingTimer != null)
+        {
+            Debug.Log($"[HOUSE] Продукт {p.name} уже добавлен в дом {houseId}");
+            yield break;
+        }
+
         h.timers.Add(new HouseTimer { pid = productId, left = p.time });
-        
-        // сохраняем в JSON и обновляем кэш
+    
+        // Update cache and save immediately
+        _housesCache = houses;
         SaveHouses();
-        
-        _housesCache = null;
-        GetHouses();
 
-        Debug.Log($"[HOUSE] В дом {houseId} добавлен продукт {p.name}");
-
-        SaveHouses(); // 👈 обновляем JSON + currentUser.houses + сервер
+        Debug.Log($"[HOUSE] В дом {houseId} добавлен продукт {p.name}, таймер: {p.time} сек");
     }
 
 
