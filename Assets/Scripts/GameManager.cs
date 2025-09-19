@@ -52,7 +52,7 @@ public class GameManager : MonoBehaviour
     public List<ProductDto> home1Products = new();      // type == "home1"
     public List<ProductDto> home2Products = new();      // type == "home2"
     public List<ProductDto> home3Products = new();      // type == "home3"
-    private Dictionary<int, ProductDto> productById = new();
+    public Dictionary<int, ProductDto> productById = new();
 
     // ===== DTO =====
     [Serializable]
@@ -93,7 +93,7 @@ public class GameManager : MonoBehaviour
     }
 
     // ====== Модель домов (локальная) ======
-    [Serializable] public class HouseTimer { public int pid; public int left; } // сек
+    [Serializable] public class HouseTimer { public int pid; public int left;  public int lvl = 1;} // сек
     [Serializable] public class House
     {
         public int id;
@@ -127,6 +127,44 @@ public class GameManager : MonoBehaviour
         
 
     }
+    
+    public void UpgradeProductInHouseButton(int houseId, int productId)
+    {
+        StartCoroutine(UpgradeProductInHouse(houseId, productId));
+    }
+
+    public IEnumerator UpgradeProductInHouse(int houseId, int productId)
+    {
+        var houses = GetHouses();
+        var h = houses.items.Find(x => x.id == houseId);
+        if (h == null || !h.active) yield break;
+
+        var timer = h.timers.Find(t => t.pid == productId);
+        if (timer == null) yield break;
+
+        if (!productById.TryGetValue(productId, out var p)) yield break;
+
+        // цена улучшения = price * (lvl+1)
+        float upgradeCost = p.price * (timer.lvl + 1);
+
+        if (currentUser.coin < upgradeCost)
+        {
+            Debug.Log("[UPGRADE] Недостаточно монет");
+            yield break;
+        }
+
+        // списываем монеты
+        currentUser.coin -= upgradeCost;
+        yield return PatchUserField("coin", currentUser.coin.ToString(CultureInfo.InvariantCulture));
+
+        // повышаем уровень
+        timer.lvl++;
+        SaveHouses();
+
+        Debug.Log($"[UPGRADE] Продукт {p.name} в доме {houseId} улучшен до {timer.lvl} уровня (цена {upgradeCost})");
+        ApplyUserData();
+    }
+
 
     public void DebugPrintHousesActive()
     {

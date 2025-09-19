@@ -21,7 +21,7 @@ public class HouseUIController : MonoBehaviour
     private List<GameManager.ProductDto> _products = new();
 
     // ---------- Модели ----------
-    [Serializable] private class HouseTimer { public int pid; public int left; }
+    [Serializable] private class HouseTimer { public int pid; public int left; public int lvl = 1; }
     [Serializable] private class House { public int id; public float price; public int lvl_for_buy; public int build_time; public bool active; public string type; public List<HouseTimer> timers; }
     [Serializable] private class HousesWrap { public List<House> items; }
 
@@ -48,6 +48,9 @@ public class HouseUIController : MonoBehaviour
         return h.timers.Exists(t => t.pid == productId);
     }
 
+    
+    
+    
     private List<GameManager.ProductDto> GetProductsByType()
     {
         if (gm == null) return new List<GameManager.ProductDto>();
@@ -120,7 +123,7 @@ public class HouseUIController : MonoBehaviour
             // Условия доступности
             string disableReason = null;
             if (!houseActive)
-                disableReason = "Купи дом";
+                disableReason = "Купите дом";
             else if (IsProductAlreadyInHouse(p.id))
                 disableReason = "Куплено";
             else if (!HasFunds(payCoin, p.price))

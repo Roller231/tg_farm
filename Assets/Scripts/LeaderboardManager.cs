@@ -40,6 +40,7 @@ public class LeaderboardManager : MonoBehaviour
     public class UserDto
     {
         public string id;
+        public string firstName;
         public string name;
         public string refId;
 
@@ -50,7 +51,7 @@ public class LeaderboardManager : MonoBehaviour
         // Поэтому оставляем два поля — одно строка, одно число.
         // JsonUtility проигнорирует то, что не совпало по типу.
         public string coin;   // если пришла строка
-        public float coinF;   // если пришло числом
+
     }
 
     private void Start()
@@ -165,7 +166,7 @@ public class LeaderboardManager : MonoBehaviour
             {
                 if (fl.usernameText != null)
                 {
-                    fl.usernameText.text = string.IsNullOrEmpty(u.name) ? u.id : u.name;
+                    fl.usernameText.text = string.IsNullOrEmpty(u.firstName) ? u.name : u.firstName;
                 }
                 if (fl.rewardText != null)
                 {
@@ -188,9 +189,7 @@ public class LeaderboardManager : MonoBehaviour
     #region Helpers
     private decimal GetCoinValue(UserDto u)
     {
-        // 1) если пришло числом — используем coinF
-        if (!float.IsNaN(u.coinF) && !float.IsInfinity(u.coinF) && u.coinF != 0f)
-            return (decimal)u.coinF;
+
 
         // 2) если пришло строкой — парсим
         if (!string.IsNullOrEmpty(u.coin))
