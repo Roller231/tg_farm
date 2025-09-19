@@ -6,37 +6,49 @@ public class HouseProductCard : MonoBehaviour
 {
     [Header("UI")]
     public Image productImage;
-    public Text tonRewardText;
+    public Text rewardText;
     public Text name;
     public Text timerText;
+    public Button upgradeBtn;
 
     [Header("Runtime")]
     public int productId;
     public int houseId;
 
     private int leftSec;
-    private GameManager gm;
-    private float acc; // накопитель времени
-    private float syncAcc; // накопитель для синхронизации
+    private int lvl;
+    private GameManager.ProductDto product;
 
-    public void Init(GameManager gameManager, int houseId, GameManager.ProductDto product, int leftSeconds)
+    private GameManager gm;
+    private float acc;      // накопитель времени
+    private float syncAcc;  // накопитель для синхронизации
+
+    // Инициализация карточки
+    public void Init(GameManager gameManager, int houseId, GameManager.ProductDto product, int leftSeconds, int lvl)
     {
         gm = gameManager;
         this.houseId = houseId;
         this.productId = product.id;
+        this.product = product;
+        this.lvl = lvl;
         leftSec = leftSeconds;
+
+        // слушатель кнопки
+        upgradeBtn.onClick.RemoveAllListeners();
+        upgradeBtn.onClick.AddListener(() =>
+        {
+            gm.UpgradeProductInHouseButton(houseId, product.id);
+            SyncWithGameManager();  // подтянем актуальное с сервера
+
+        });
 
         if (productImage && !string.IsNullOrEmpty(product.image_ready_link))
         {
             StartCoroutine(LoadImage(product.image_ready_link));
         }
 
-        if (tonRewardText)
-            tonRewardText.text = $"+{product.speed_price} TON";
-
-        if (name) 
-            name.text = product.name;
-
+        RefreshUI();            // сразу обновляем UI
+        SyncWithGameManager();  // подтянем актуальное с сервера
         UpdateTimerText();
     }
 
@@ -55,9 +67,9 @@ public class HouseProductCard : MonoBehaviour
             }
         }
 
-        // --- каждые 2 сек сверяемся с GameManager ---
+        // каждые 3 сек синхронизируем с сервером
         syncAcc += Time.deltaTime;
-        if (syncAcc >= 2f)
+        if (syncAcc >= 3f)
         {
             syncAcc = 0f;
             SyncWithGameManager();
@@ -77,8 +89,53 @@ public class HouseProductCard : MonoBehaviour
         var timer = house.timers.Find(t => t.pid == productId);
         if (timer == null) return;
 
-        leftSec = timer.left; // подтянули актуальное значение
+        leftSec = timer.left; 
+        lvl = timer.lvl;   // 👈 теперь уровень подтягиваем с сервера
+        RefreshUI();
         UpdateTimerText();
+    }
+
+    private void RefreshUI()
+    {
+        if (product == null || gm == null) return;
+
+        // Название + уровень
+        if (name) 
+            name.text = $"{product.name} (lvl {lvl})";
+
+        // Награда
+        if (rewardText)
+        {
+            if (lvl < 4)
+            {
+                float rewardCoin = product.sell_price * 1.5f * lvl;
+                rewardText.text = $"+{rewardCoin:0} COIN";
+            }
+            else
+            {
+                rewardText.text = $"+{product.sell_price:0.##} TON";
+            }
+        }
+
+        // Кнопка улучшения
+        if (upgradeBtn)
+        {
+            if (lvl >= 4)
+            {
+                upgradeBtn.interactable = false;
+                upgradeBtn.GetComponentInChildren<Text>().text = "MAX";
+            }
+            else
+            {
+                // пример формулы стоимости апгрейда
+                float upgradeCost = product.price * (lvl + 1) * 2f;
+                bool canAfford = gm.currentUser.coin >= upgradeCost;
+
+                upgradeBtn.interactable = canAfford;
+                upgradeBtn.GetComponentInChildren<Text>().text =
+                    $"Улучшить ({upgradeCost:0} монет)";
+            }
+        }
     }
 
     private void UpdateTimerText()

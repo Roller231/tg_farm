@@ -40,7 +40,7 @@ public class HouseUiMenu : MonoBehaviour
             if (!gm.productById.TryGetValue(t.pid, out var product)) continue;
 
             var card = Instantiate(productCardPrefab, contentParent);
-            card.Init(gm, houseId, product, t.left);
+            card.Init(gm, houseId, product, t.left, t.lvl);
         }
 
         if (headerTitle) headerTitle.text = $"Дом {houseId}";

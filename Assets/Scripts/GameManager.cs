@@ -807,6 +807,7 @@ public class GameManager : MonoBehaviour
     {
         var houses = GetHouses();
         var h = houses.items.Find(x => x.id == houseId);
+        
         if (h == null) { Debug.LogError($"[HOUSE] не найден id={houseId}"); yield break; }
 
         if (currentUser.lvl < h.lvl_for_buy) { Debug.Log($"[HOUSE] Нужен уровень {h.lvl_for_buy}"); yield break; }
@@ -888,38 +889,35 @@ public class GameManager : MonoBehaviour
 
     private IEnumerator HousePayout(int houseId, int productId)
     {
-        string url = $"{backendUsersUrl}/users/{currentUser.id}/houses/payout?house_id={houseId}&product_id={productId}";
-        Debug.Log($"[HOUSE PAYOUT] {url}");
+        var houses = GetHouses();
+        var h = houses.items.Find(x => x.id == houseId);
+        if (h == null) yield break;
 
-        using (var req = UnityWebRequest.PostWwwForm(url, ""))
+        var timer = h.timers.Find(t => t.pid == productId);
+        if (timer == null) yield break;
+
+        if (!productById.TryGetValue(productId, out var p)) yield break;
+
+        if (timer.lvl < 4)
         {
-            yield return req.SendWebRequest();
-
-            if (req.result == UnityWebRequest.Result.Success)
-            {
-                string raw = req.downloadHandler.text;
-                Debug.Log($"[HOUSE PAYOUT] Ответ: {raw}");
-                try
-                {
-                    var resp = JsonUtility.FromJson<TonResp>(raw);
-                    if (resp != null)
-                    {
-                        currentUser.ton = resp.ton;
-                        ApplyUserData();
-                        Debug.Log($"[HOUSE PAYOUT] Новый TON = {currentUser.ton}");
-                    }
-                }
-                catch (Exception e)
-                {
-                    Debug.LogError($"[HOUSE PAYOUT] Ошибка парсинга: {e.Message}");
-                }
-            }
-            else
-            {
-                Debug.LogError($"[HOUSE PAYOUT] error {req.responseCode} {req.error}");
-            }
+            // выдаём монеты
+            float rewardCoin = p.sell_price * 1.5f * timer.lvl;
+            currentUser.coin += rewardCoin;
+            yield return PatchUserField("coin", currentUser.coin.ToString(CultureInfo.InvariantCulture));
+            Debug.Log($"[PAYOUT] Дом {houseId}, продукт {p.name}, lvl {timer.lvl}: +{rewardCoin} монет");
         }
+        else
+        {
+            // выдаём TON
+            float rewardTon = p.sell_price;
+            currentUser.ton += rewardTon;
+            yield return PatchUserField("ton", currentUser.ton.ToString(CultureInfo.InvariantCulture));
+            Debug.Log($"[PAYOUT] Дом {houseId}, продукт {p.name}, lvl {timer.lvl}: +{rewardTon} TON");
+        }
+
+        ApplyUserData();
     }
+
 
 
 
