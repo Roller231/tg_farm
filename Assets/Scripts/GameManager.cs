@@ -52,6 +52,8 @@ public class GameManager : MonoBehaviour
     public List<ProductDto> home1Products = new();      // type == "home1"
     public List<ProductDto> home2Products = new();      // type == "home2"
     public List<ProductDto> home3Products = new();      // type == "home3"
+    public List<ProductDto> mineProducts = new();    // type == "mine"
+    public List<ProductDto> voyageProducts = new();  // type == "voyage"
     public Dictionary<int, ProductDto> productById = new();
 
     // ===== DTO =====
@@ -497,11 +499,17 @@ public class GameManager : MonoBehaviour
                 yield return StartCoroutine(FetchProductsByType("home1", list => home1Products = list));
                 yield return StartCoroutine(FetchProductsByType("home2", list => home2Products = list));
                 yield return StartCoroutine(FetchProductsByType("home3", list => home3Products = list));
+                yield return StartCoroutine(FetchProductsByType("mine", list => mineProducts = list));
+                yield return StartCoroutine(FetchProductsByType("voyage", list => voyageProducts = list));
+
 
                 // заполним map по id
                 productById.Clear();
                 void AddMap(IEnumerable<ProductDto> lst) { foreach (var p in lst) productById[p.id] = p; }
                 AddMap(allProducts); AddMap(home1Products); AddMap(home2Products); AddMap(home3Products);
+                AddMap(mineProducts);
+                AddMap(voyageProducts);
+
 
                 // === оффлайн-начисление по домам ДО старта гриды ===
                 yield return StartCoroutine(ApplyOfflineProgressHouses());
@@ -523,20 +531,26 @@ public class GameManager : MonoBehaviour
 
     private IEnumerator CreateUser()
     {
-        string url = $"{backendUsersUrl}/users";
-        var payload = new UserDto
-        {
-            id = userID, name = username, firstName = firstName,
-            ton = 0, lvl_upgrade = 0, lvl = 1,
-            coin = 100, bezoz = 10, ref_count = 0,
-            time_farm = "", seed_count = "{\"items\":[]}", storage_count = "{\"items\":[]}",
-            grid_count = 3, grid_state = "",  refId = "",
-            houses = "{\"items\":[" +
-                     "{\"id\":1,\"price\":100,\"lvl_for_buy\":1,\"build_time\":3600,\"active\":false,\"type\":\"home1\",\"timers\":[]}," +
-                     "{\"id\":2,\"price\":500,\"lvl_for_buy\":2,\"build_time\":7200,\"active\":false,\"type\":\"home2\",\"timers\":[]}," +
-                     "{\"id\":3,\"price\":1000,\"lvl_for_buy\":3,\"build_time\":14400,\"active\":false,\"type\":\"home3\",\"timers\":[]}" +
-                     "]}"
-        };
+string url = $"{backendUsersUrl}/users";
+var payload = new UserDto
+{
+    id = userID, name = username, firstName = firstName,
+    ton = 0, lvl_upgrade = 0, lvl = 1,
+    coin = 100, bezoz = 10, ref_count = 0,
+    time_farm = "", seed_count = "{\"items\":[]}", storage_count = "{\"items\":[]}",
+    grid_count = 3, grid_state = "", refId = "",
+    houses = "{\"items\":[" +
+             // Домики для продуктов
+             "{\"id\":1,\"price\":100,\"lvl_for_buy\":1,\"build_time\":3600,\"active\":false,\"type\":\"home1\",\"timers\":[]}," +
+             "{\"id\":2,\"price\":500,\"lvl_for_buy\":2,\"build_time\":7200,\"active\":false,\"type\":\"home2\",\"timers\":[]}," +
+             "{\"id\":3,\"price\":1000,\"lvl_for_buy\":3,\"build_time\":14400,\"active\":false,\"type\":\"home3\",\"timers\":[]}," +
+             // Новый дом 4: шахта
+             "{\"id\":4,\"price\":2000,\"lvl_for_buy\":4,\"build_time\":28800,\"active\":true,\"type\":\"mine\",\"timers\":[]}," +
+             // Новый дом 5: поход
+             "{\"id\":5,\"price\":2500,\"lvl_for_buy\":5,\"build_time\":36000,\"active\":true,\"type\":\"voyage\",\"timers\":[]}" +
+             "]}"
+};
+
 
         string json = JsonUtility.ToJson(payload);
         byte[] body = Encoding.UTF8.GetBytes(json);
@@ -857,20 +871,31 @@ public class GameManager : MonoBehaviour
                 if (t.left <= 0)
                 {
                     StartCoroutine(HousePayout(h.id, t.pid));
-                    t.left = GetCycleTimeForProduct(t.pid);
+
+                    if (h.type == "mine" || h.type == "voyage")
+                    {
+                        // ⚡ одноразовые — убираем таймер полностью
+                        h.timers.Clear();
+                    }
+                    else
+                    {
+                        // цикличные дома: перезапускаем
+                        t.left = GetCycleTimeForProduct(t.pid);
+                    }
                 }
-                changed = true; // ✅ даже если просто уменьшили таймер
+                changed = true;
             }
         }
 
         if (changed)
         {
             _housesCache = houses;
-            SaveHouses(); // ✅ теперь сохраняется всегда
+            SaveHouses();
         }
 
         return changed;
     }
+
 
 
 
@@ -909,7 +934,7 @@ public class GameManager : MonoBehaviour
         else
         {
             // выдаём TON
-            float rewardTon = p.sell_price;
+            float rewardTon = p.sell_price / 100;
             currentUser.ton += rewardTon;
             yield return PatchUserField("ton", currentUser.ton.ToString(CultureInfo.InvariantCulture));
             Debug.Log($"[PAYOUT] Дом {houseId}, продукт {p.name}, lvl {timer.lvl}: +{rewardTon} TON");

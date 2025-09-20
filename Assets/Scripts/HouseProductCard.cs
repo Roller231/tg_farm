@@ -113,7 +113,7 @@ public class HouseProductCard : MonoBehaviour
             }
             else
             {
-                rewardText.text = $"+{product.sell_price:0.##} TON";
+                rewardText.text = $"+{product.sell_price /100} TON";
             }
         }
 
