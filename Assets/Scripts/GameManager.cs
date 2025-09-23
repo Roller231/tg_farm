@@ -76,6 +76,7 @@ public class GameManager : MonoBehaviour
         public string grid_state = "";
         public string refId;
         public string houses; // JSON домов
+        public int isPremium;
     }
 
     [Serializable]
@@ -95,7 +96,15 @@ public class GameManager : MonoBehaviour
     }
 
     // ====== Модель домов (локальная) ======
-    [Serializable] public class HouseTimer { public int pid; public int left;  public int lvl = 1;} // сек
+    [Serializable] 
+    public class HouseTimer 
+    { 
+        public int pid; 
+        public int left;  
+        public int lvl = 1;  
+        public string currency; // "coin", "bezoz", "ton"
+    }
+
     [Serializable] public class House
     {
         public int id;
@@ -395,6 +404,11 @@ public class GameManager : MonoBehaviour
             }
             else cell.ClearToIdle();
         }
+        
+        foreach (var voyage in FindObjectsOfType<VoyageUIController>())
+        {
+            voyage.InitAfterUserLoaded();
+        }
     }
 
     private IEnumerator RetryRestore(float delay) { yield return new WaitForSeconds(delay); RestoreGridFromServer(); }
@@ -611,6 +625,8 @@ var payload = new UserDto
 
 
         if (GridController) GridController.StartGrid();
+
+
         
         //SetCount(1);
     }
@@ -868,18 +884,22 @@ var payload = new UserDto
             {
                 var t = h.timers[i];
                 t.left -= deltaSec;
+
                 if (t.left <= 0)
                 {
-                    StartCoroutine(HousePayout(h.id, t.pid));
-
-                    if (h.type == "mine" || h.type == "voyage")
+                    if (h.type == "mine")
                     {
-                        // ⚡ одноразовые — убираем таймер полностью
+                        StartCoroutine(MinePayoutOnce(h, t.pid));
+                        h.timers.Clear();
+                    }
+                    else if (h.type == "voyage")
+                    {
+                        StartCoroutine(VoyagePayoutOnce(h, t));
                         h.timers.Clear();
                     }
                     else
                     {
-                        // цикличные дома: перезапускаем
+                        StartCoroutine(HousePayout(h.id, t.pid));
                         t.left = GetCycleTimeForProduct(t.pid);
                     }
                 }
@@ -896,7 +916,66 @@ var payload = new UserDto
         return changed;
     }
 
+    
+    private IEnumerator VoyagePayoutOnce(House h, HouseTimer t)
+    {
+        if (!productById.TryGetValue(t.pid, out var p)) yield break;
+        if (string.IsNullOrEmpty(t.currency)) yield break;
 
+        System.Random rnd = new System.Random();
+
+        if (t.currency == "coin")
+        {
+            int rewardCoin = rnd.Next(1, Mathf.CeilToInt(p.sell_price * 2));
+            currentUser.coin += rewardCoin;
+            yield return PatchUserField("coin", currentUser.coin.ToString());
+            Debug.Log($"[VOYAGE PAYOUT] +{rewardCoin} монет");
+        }
+        else if (t.currency == "bezoz")
+        {
+            int rewardBezoz = rnd.Next(1, Mathf.CeilToInt(p.sell_price / 50f));
+            currentUser.bezoz += rewardBezoz;
+            yield return PatchUserField("bezoz", currentUser.bezoz.ToString());
+            Debug.Log($"[VOYAGE PAYOUT] +{rewardBezoz} BEZOZ");
+        }
+        else if (t.currency == "ton")
+        {
+            float rewardTon = Mathf.Max(0.01f, p.sell_price / 500f);
+            currentUser.ton += rewardTon;
+            yield return PatchUserField("ton", currentUser.ton.ToString("F2"));
+            Debug.Log($"[VOYAGE PAYOUT] +{rewardTon:F2} TON");
+        }
+
+        ApplyUserData();
+    }
+
+
+
+
+    private IEnumerator MinePayoutOnce(House h, int productId)
+    {
+        if (!productById.TryGetValue(productId, out var p)) yield break;
+
+        System.Random rnd = new System.Random();
+        int roll = rnd.Next(0, 100);
+
+        if (roll < 80)
+        {
+            int rewardCoin = rnd.Next(1, Mathf.CeilToInt(p.sell_price));
+            currentUser.coin += rewardCoin;
+            yield return PatchUserField("coin", currentUser.coin.ToString(CultureInfo.InvariantCulture));
+            Debug.Log($"[MINE PAYOUT] +{rewardCoin} монет");
+        }
+        else
+        {
+            int rewardBezoz = rnd.Next(1, Mathf.Max(1, Mathf.CeilToInt(p.sell_price / 100f)));
+            currentUser.bezoz += rewardBezoz;
+            yield return PatchUserField("bezoz", currentUser.bezoz.ToString(CultureInfo.InvariantCulture));
+            Debug.Log($"[MINE PAYOUT] +{rewardBezoz} BEZOZ");
+        }
+
+        ApplyUserData();
+    }
 
 
 
@@ -1052,26 +1131,58 @@ var payload = new UserDto
                 int period = GetCycleTimeForProduct(t.pid);
                 if (period <= 0) period = 60;
 
-                // нормализуем left
                 int left0 = t.left > 0 ? t.left : period;
 
-                // посчитать сколько раз сработал таймер за delta и новый остаток
-                long cycles; int newLeft;
-                ComputeOfflineCycles(left0, period, (int)delta, out cycles, out newLeft);
-
-                // если есть срабатывания — делаем payout cycles раз
-                if (cycles > 0)
+                if (h.type == "mine")
                 {
-                    for (long k = 0; k < cycles; k++)
-                        yield return StartCoroutine(HousePayout(h.id, t.pid));
-
-                    timersChanged = true;
+                    if (delta >= left0)
+                    {
+                        // таймер успел закончиться оффлайн → награда и очистка
+                        yield return StartCoroutine(MinePayoutOnce(h, t.pid));
+                        h.timers.Clear();
+                        timersChanged = true;
+                    }
+                    else
+                    {
+                        // таймер ещё не истёк → уменьшаем на прошедшее время
+                        t.left = left0 - (int)delta;
+                        timersChanged = true;
+                    }
+                }
+                else if (h.type == "voyage")
+                {
+                    if (delta >= left0)
+                    {
+                        yield return StartCoroutine(VoyagePayoutOnce(h, t));
+                        h.timers.Clear();
+                        timersChanged = true;
+                    }
+                    else
+                    {
+                        // таймер ещё не истёк → уменьшаем на прошедшее время
+                        t.left = left0 - (int)delta;
+                        timersChanged = true;
+                    }
                 }
 
-                // выставить новый остаток
-                t.left = newLeft <= 0 ? period : newLeft;
+                else
+                {
+                    long cycles; int newLeft;
+                    ComputeOfflineCycles(left0, period, (int)delta, out cycles, out newLeft);
+
+                    if (cycles > 0)
+                    {
+                        for (long k = 0; k < cycles; k++)
+                            yield return StartCoroutine(HousePayout(h.id, t.pid));
+
+                        timersChanged = true;
+                    }
+
+                    t.left = newLeft <= 0 ? period : newLeft;
+                }
             }
         }
+
 
         if (timersChanged)
         {
