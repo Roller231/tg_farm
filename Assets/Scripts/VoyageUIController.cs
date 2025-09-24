@@ -83,6 +83,7 @@ public class VoyageUIController : MonoBehaviour
                 isVoyaging = true;
                 SetButtonsInteractable(false);
                 UpdateTimerText();
+                gm.ApplyUserData();
             }
         }
         else

@@ -55,6 +55,9 @@ public class GameManager : MonoBehaviour
     public List<ProductDto> mineProducts = new();    // type == "mine"
     public List<ProductDto> voyageProducts = new();  // type == "voyage"
     public Dictionary<int, ProductDto> productById = new();
+    
+    
+    
 
     // ===== DTO =====
     [Serializable]

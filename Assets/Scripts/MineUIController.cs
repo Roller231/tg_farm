@@ -89,6 +89,9 @@ public class MineUIController : MonoBehaviour
             timerText.text = "--:--:--";
             startMiningBtn.gameObject.SetActive(true);
         }
+        
+        gm.ApplyUserData();
+
     }
 
     // Кнопка: начать майнинг

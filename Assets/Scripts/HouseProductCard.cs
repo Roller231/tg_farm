@@ -136,6 +136,8 @@ public class HouseProductCard : MonoBehaviour
                     $"Улучшить ({upgradeCost:0} монет)";
             }
         }
+        gm.ApplyUserData();
+
     }
 
     private void UpdateTimerText()
