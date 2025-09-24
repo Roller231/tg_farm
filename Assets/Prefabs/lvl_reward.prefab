@@ -98,6 +98,8 @@ MonoBehaviour:
   level: {fileID: 2195432224742259419}
   img: {fileID: 2450113844527618026}
   galka: {fileID: 4461377325115278932}
+  isPremium: 0
+  rewardIsPremium: 0
 --- !u!1 &2047821280057482738
 GameObject:
   m_ObjectHideFlags: 0
@@ -132,8 +134,8 @@ RectTransform:
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0.5, y: 0.5}
   m_AnchorMax: {x: 0.5, y: 0.5}
-  m_AnchoredPosition: {x: 2.3, y: -64.5}
-  m_SizeDelta: {x: 243.813, y: 50.9846}
+  m_AnchoredPosition: {x: 0, y: -51}
+  m_SizeDelta: {x: 235.5848, y: 49.264}
   m_Pivot: {x: 0.5, y: 0.5}
 --- !u!222 &363199830281790796
 CanvasRenderer:
@@ -211,8 +213,8 @@ RectTransform:
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0.5, y: 0.5}
   m_AnchorMax: {x: 0.5, y: 0.5}
-  m_AnchoredPosition: {x: 0.99999, y: 85.2}
-  m_SizeDelta: {x: 147.4, y: 147.4}
+  m_AnchoredPosition: {x: 0, y: 82.6}
+  m_SizeDelta: {x: 136.3654, y: 136.3654}
   m_Pivot: {x: 0.5, y: 0.5}
 --- !u!222 &3768197191314333048
 CanvasRenderer:
@@ -286,8 +288,8 @@ RectTransform:
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0.5, y: 0.5}
   m_AnchorMax: {x: 0.5, y: 0.5}
-  m_AnchoredPosition: {x: -0.3, y: -22}
-  m_SizeDelta: {x: 67.2, y: 58.51}
+  m_AnchoredPosition: {x: 0, y: -11.8}
+  m_SizeDelta: {x: 46.4453, y: 40.4392}
   m_Pivot: {x: 0.5, y: 0.5}
 --- !u!222 &7411800058975871944
 CanvasRenderer:
@@ -440,8 +442,8 @@ RectTransform:
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0.5, y: 0.5}
   m_AnchorMax: {x: 0.5, y: 0.5}
-  m_AnchoredPosition: {x: 0.121486664, y: -108.295746}
-  m_SizeDelta: {x: 243.813, y: 44.3621}
+  m_AnchoredPosition: {x: 0.99999, y: -100.39}
+  m_SizeDelta: {x: 272.1302, y: 49.5144}
   m_Pivot: {x: 0.5, y: 0.5}
 --- !u!222 &1039560294097807156
 CanvasRenderer:

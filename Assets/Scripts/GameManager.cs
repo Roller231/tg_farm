@@ -256,6 +256,8 @@ public class GameManager : MonoBehaviour
         public string username; public string language_code; public string photo_url;
     }
 
+    public RewardsManager rewManager;
+
     // ====== Level / EXP ======
     public IEnumerator AddLvl(float lvlToAdd)
     {
@@ -267,6 +269,8 @@ public class GameManager : MonoBehaviour
             {
                 currentUser.lvl_upgrade -= 1f;
                 currentUser.lvl++;
+                rewManager.GiveReward(currentUser.lvl);
+                
             }
             StartCoroutine(PatchUserField("lvl_upgrade", currentUser.lvl_upgrade.ToString(CultureInfo.InvariantCulture)));
             yield return PatchUserField("lvl", currentUser.lvl.ToString());
@@ -276,6 +280,8 @@ public class GameManager : MonoBehaviour
         {
             currentUser.lvl_upgrade = 0f;
             currentUser.lvl++;
+            rewManager.GiveReward(currentUser.lvl);
+
             StartCoroutine(PatchUserField("lvl_upgrade", currentUser.lvl_upgrade.ToString(CultureInfo.InvariantCulture)));
             yield return PatchUserField("lvl", currentUser.lvl.ToString());
             ApplyUserData();

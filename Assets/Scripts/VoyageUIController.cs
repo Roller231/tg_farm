@@ -146,6 +146,7 @@ public class VoyageUIController : MonoBehaviour
         gm.StartCoroutine(gm.PatchUserField("houses", gm.currentUser.houses));
 
         UpdateTimerText();
+        gm.ApplyUserData();
     }
 
     private void StopVoyage()

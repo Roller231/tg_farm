@@ -12,8 +12,17 @@ public class Reward
     public int id;
     public int level;
     public string type;
-    public string amount;
+    public float amount;
     public int isPremium;
+}
+
+
+[Serializable]
+public class AdminDataDto
+{
+    public int id;
+    public string name;
+    public string value;
 }
 
 public class RewardsManager : MonoBehaviour
@@ -28,20 +37,32 @@ public class RewardsManager : MonoBehaviour
     [Header("Create Prefabs")] public List<Sprite> icons; // 0=coin, 1=bezoz, 2=ton
     public GameObject parent;
     public GameObject prefab;
+    public Text BuyBtnText;
+    public Button BuyBtn;
+    public float premPrice;
 
-    void Start()
+    public void Onbgtt()
     {
      
         StartCoroutine(GetRewardsFromServer());
+        premPrice = float.Parse( AdminDataManager.Instance.GetValueById(4));
+        BuyBtnText.text = "Купить премиум за " + premPrice;
+
     }
 
-    private void OnEnable()
-    {
-        UpdateUI();
-    }
+    // private void OnEnable()
+    // {
+    //     UpdateUI();
+    // }
 
     IEnumerator GetRewardsFromServer()
     {
+// Удаляем все дочерние объекты из parent
+        foreach (Transform child in parent.transform)
+        {
+            Destroy(child.gameObject);
+        }
+        
         using (UnityWebRequest request = UnityWebRequest.Get(rewardsUrl))
         {
             yield return request.SendWebRequest();
@@ -114,7 +135,7 @@ public class RewardsManager : MonoBehaviour
             else
                 CreateEmptyPrefab();
         }
-        
+
         UpdateUI();
     }
 
@@ -143,7 +164,7 @@ public class RewardsManager : MonoBehaviour
                 a.img.sprite = icons[iconIndex];
 
             if (a.rewardType != null) a.rewardType.text = reward.type;
-            if (a.rewardCount != null) a.rewardCount.text = reward.amount;
+            if (a.rewardCount != null) a.rewardCount.text = reward.amount.ToString();
             if (a.level != null) a.level.text = reward.level.ToString();
 
             a.isPremium = reward.isPremium; // <-- добавили
@@ -224,6 +245,96 @@ public class RewardsManager : MonoBehaviour
                 }
             }
         }
+        
+        
+
+
+        if (gm.currentUser.ton < premPrice)
+        {
+            BuyBtn.interactable = false;
+            BuyBtnText.text = $"Нужно {premPrice} TON";
+        }
+        else
+        {
+            BuyBtn.interactable = true;
+            BuyBtnText.text = "Купить премиум за " + premPrice;
+        }
+    }
+
+
+    public void GiveReward(int lvl)
+    {
+        if (gm.currentUser.isPremium == 1)
+        {
+            //index >= 0 && index < myArray.Length
+            if (lvl-1 >= 0 && lvl-1 < normalRewards.Count)
+            {
+                if (normalRewards[lvl - 1].type == "coin")
+                {
+                    gm.currentUser.coin += normalRewards[lvl - 1].amount;
+                    gm.StartCoroutine(gm.PatchUserField("coin", gm.currentUser.coin.ToString()));
+
+                }
+                else if (normalRewards[lvl - 1].type == "bezoz")
+                {
+                    gm.currentUser.bezoz += normalRewards[lvl - 1].amount;
+                    gm.StartCoroutine(gm.PatchUserField("bezoz", gm.currentUser.bezoz.ToString()));
+
+                }
+                else if (normalRewards[lvl - 1].type == "ton")
+                {
+                    gm.currentUser.ton +=  normalRewards[lvl - 1].amount;
+                    gm.StartCoroutine(gm.PatchUserField("ton", gm.currentUser.ton.ToString()));
+                }
+            }
+
+            if (lvl-1 >= 0 && lvl-1 < premiumRewards.Count)
+            {
+                if (premiumRewards[lvl - 1].type == "coin")
+                {
+                    gm.currentUser.coin += premiumRewards[lvl - 1].amount;
+                    gm.StartCoroutine(gm.PatchUserField("coin", gm.currentUser.coin.ToString()));
+
+                }
+                else if (premiumRewards[lvl - 1].type == "bezoz")
+                {
+                    gm.currentUser.bezoz += premiumRewards[lvl - 1].amount;
+                    gm.StartCoroutine(gm.PatchUserField("bezoz", gm.currentUser.bezoz.ToString()));
+
+                }
+                else if (premiumRewards[lvl - 1].type == "ton")
+                {
+                    gm.currentUser.ton += premiumRewards[lvl - 1].amount;
+                    gm.StartCoroutine(gm.PatchUserField("ton", gm.currentUser.ton.ToString()));
+                }
+            }
+        }
+        else
+        {
+            if (lvl-1 >= 0 && lvl-1 < premiumRewards.Count)
+            {
+                if (normalRewards[lvl - 1].type == "coin")
+                {
+                    gm.currentUser.coin += normalRewards[lvl - 1].amount;
+                    gm.StartCoroutine(gm.PatchUserField("coin", gm.currentUser.coin.ToString()));
+
+                }
+                else if (normalRewards[lvl - 1].type == "bezoz")
+                {
+                    gm.currentUser.bezoz += normalRewards[lvl - 1].amount;
+                    gm.StartCoroutine(gm.PatchUserField("bezoz", gm.currentUser.bezoz.ToString()));
+
+                }
+                else if (normalRewards[lvl - 1].type == "ton")
+                {
+                    gm.currentUser.ton += normalRewards[lvl - 1].amount;
+                    gm.StartCoroutine(gm.PatchUserField("ton", gm.currentUser.ton.ToString()));
+                }
+            }
+        }
+        
+        gm.ApplyUserData();
+        UpdateUI();
     }
 
 
@@ -232,8 +343,8 @@ public class RewardsManager : MonoBehaviour
 
 
 
-    
-    
-    
+
+
+
 
 }
