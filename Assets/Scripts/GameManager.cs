@@ -883,7 +883,6 @@ var payload = new UserDto
 
 
 
-
     // тикаем таймеры; при достижении 0 — вызываем выплату и перезапускаем
     public bool TickHouses(int deltaSec)
     {
@@ -915,12 +914,33 @@ var payload = new UserDto
                         StartCoroutine(VoyagePayoutOnce(h, t));
                         h.timers.Clear();
                     }
-                    else
+
+                }
+
+                if (t.left <= 2)
+                {
+                    if(h.type != "mine" && h.type != "voyage")
+                    {
+                        Debug.Log(h.price);
+                        
+                        
+                        
+                        t.left = 4;
+                    }
+                }
+                else if (t.left <= 0)
+                
+                    
+                
+                {
+                    if(h.type != "mine" && h.type != "voyage")
                     {
                         StartCoroutine(HousePayout(h.id, t.pid));
                         t.left = GetCycleTimeForProduct(t.pid);
                     }
+
                 }
+                
                 changed = true;
             }
         }
@@ -934,6 +954,37 @@ var payload = new UserDto
         return changed;
     }
 
+
+    public void GiveReward(int pid)
+    {        
+        var houses = GetHouses();
+
+        foreach (var h in houses.items)
+        {
+            if (!h.active || h.timers == null) continue;
+
+            for (int i = 0; i < h.timers.Count; i++)
+            {
+                var t = h.timers[i];
+
+                if (t.pid == pid)
+                {
+                    if(h.type != "mine" && h.type != "voyage")
+                    {
+                        StartCoroutine(HousePayout(h.id, t.pid));
+                        t.left = GetCycleTimeForProduct(t.pid);
+                    }
+                }
+
+
+
+
+
+                
+                
+            }
+        }
+    }
     
     private IEnumerator VoyagePayoutOnce(House h, HouseTimer t)
     {
@@ -1183,20 +1234,14 @@ var payload = new UserDto
                     }
                 }
 
-                else
+                else // обычные дома
                 {
-                    long cycles; int newLeft;
-                    ComputeOfflineCycles(left0, period, (int)delta, out cycles, out newLeft);
+                    int newLeft = left0 - (int)delta;
 
-                    if (cycles > 0)
-                    {
-                        for (long k = 0; k < cycles; k++)
-                            yield return StartCoroutine(HousePayout(h.id, t.pid));
+                    // 🔹 Если таймер <= 0, ставим 4
+                    t.left = newLeft <= 0 ? 4 : newLeft;
 
-                        timersChanged = true;
-                    }
-
-                    t.left = newLeft <= 0 ? period : newLeft;
+                    timersChanged = true;
                 }
             }
         }

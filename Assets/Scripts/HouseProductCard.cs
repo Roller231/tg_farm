@@ -52,8 +52,24 @@ public class HouseProductCard : MonoBehaviour
         UpdateTimerText();
     }
 
+    public void SetButtonToCollect()
+    {
+        GetComponentInChildren<Text>().text = "Собрать ресурсы";
+        timerText.gameObject.SetActive(false);
+        
+        upgradeBtn.onClick.RemoveAllListeners();
+        upgradeBtn.onClick.AddListener(() =>
+        {
+            
+            SyncWithGameManager();  // подтянем актуальное с сервера
+
+        });
+    }
+
     private void Update()
     {
+        RefreshUI();
+        
         if (leftSec > 0)
         {
             acc += Time.deltaTime;
@@ -117,28 +133,61 @@ public class HouseProductCard : MonoBehaviour
             }
         }
 
-        // Кнопка улучшения
+        // Кнопка
         if (upgradeBtn)
         {
-            if (lvl >= 4)
+            // 🆕 Проверка на таймер
+            if (leftSec <= 4)
+            {
+                timerText.gameObject.SetActive(false);
+                
+                upgradeBtn.interactable = true;
+                upgradeBtn.GetComponentInChildren<Text>().text = "Собрать ресурсы";
+
+                // убираем старые действия
+                upgradeBtn.onClick.RemoveAllListeners();
+
+                upgradeBtn.onClick.AddListener(() =>
+                {
+                    gm.GiveReward(productId);
+                    SyncWithGameManager();
+                });
+                
+                // 🔹 если надо, тут можно добавить вызов функции сбора:
+                // upgradeBtn.onClick.AddListener(() => CollectReward());
+            }
+
+
+            else if (lvl >= 4)
             {
                 upgradeBtn.interactable = false;
                 upgradeBtn.GetComponentInChildren<Text>().text = "MAX";
             }
             else
             {
-                // пример формулы стоимости апгрейда
                 float upgradeCost = product.price * (lvl + 1) * 2f;
                 bool canAfford = gm.currentUser.coin >= upgradeCost;
 
+                timerText.gameObject.SetActive(true);
+
+                
                 upgradeBtn.interactable = canAfford;
                 upgradeBtn.GetComponentInChildren<Text>().text =
                     $"Улучшить ({upgradeCost:0} монет)";
+
+                // обновляем действие кнопки
+                upgradeBtn.onClick.RemoveAllListeners();
+                upgradeBtn.onClick.AddListener(() =>
+                {
+                    gm.UpgradeProductInHouseButton(houseId, product.id);
+                    SyncWithGameManager();
+                });
             }
         }
-        gm.ApplyUserData();
 
+        gm.ApplyUserData();
     }
+
 
     private void UpdateTimerText()
     {
