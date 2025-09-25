@@ -31,6 +31,13 @@ public class MineUIController : MonoBehaviour
         SyncFromJson(); // подтягиваем состояние шахты из JSON
     }
 
+    // private void OnEnable()
+    // {
+    //     SyncFromJson();
+    //     startMiningBtn.onClick.RemoveAllListeners();
+    //     startMiningBtn.onClick.AddListener(StartMining);
+    // }
+
     private void Update()
     {
         if (isMining)

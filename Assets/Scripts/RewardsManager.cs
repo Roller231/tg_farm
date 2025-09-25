@@ -249,10 +249,15 @@ public class RewardsManager : MonoBehaviour
         
 
 
-        if (gm.currentUser.ton < premPrice)
+        if (gm.currentUser.ton < premPrice )
         {
             BuyBtn.interactable = false;
             BuyBtnText.text = $"Нужно {premPrice} TON";
+        }
+        else if (gm.currentUser.isPremium == 1)
+        {
+            BuyBtn.interactable = false;
+            BuyBtnText.text = $"Премиум куплен";
         }
         else
         {
@@ -335,6 +340,58 @@ public class RewardsManager : MonoBehaviour
         
         gm.ApplyUserData();
         UpdateUI();
+    }
+    
+     public void GiveRewardPremium(int lvl)
+    {
+       
+            
+
+
+            if (lvl-1 >= 0 && lvl-1 < premiumRewards.Count)
+            {
+                Debug.Log("BUY PREM" + lvl);
+                if (premiumRewards[lvl - 1].type == "coin")
+                {
+                    gm.currentUser.coin += premiumRewards[lvl - 1].amount;
+                    gm.StartCoroutine(gm.PatchUserField("coin", gm.currentUser.coin.ToString()));
+
+                }
+                else if (premiumRewards[lvl - 1].type == "bezoz")
+                {
+                    gm.currentUser.bezoz += premiumRewards[lvl - 1].amount;
+                    gm.StartCoroutine(gm.PatchUserField("bezoz", gm.currentUser.bezoz.ToString()));
+
+                }
+                else if (premiumRewards[lvl - 1].type == "ton")
+                {
+                    gm.currentUser.ton += premiumRewards[lvl - 1].amount;
+                    gm.StartCoroutine(gm.PatchUserField("ton", gm.currentUser.ton.ToString()));
+                }
+            }
+        
+      
+        
+        
+        gm.ApplyUserData();
+        UpdateUI();
+    }
+
+
+
+    public void BuyPremium()
+    {
+        if(gm.currentUser.ton < premPrice) return;
+
+        gm.currentUser.ton -= premPrice;
+        gm.currentUser.isPremium = 1;
+        
+        gm.StartCoroutine(gm.PatchUserField("ton", gm.currentUser.ton.ToString()));
+        gm.StartCoroutine(gm.PatchUserField("isPremium", gm.currentUser.isPremium.ToString()));
+        for (int i = 1; i <= gm.currentUser.lvl; i++)
+        {
+            GiveRewardPremium(i);
+        }
     }
 
 

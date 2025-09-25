@@ -34,6 +34,12 @@ public class VoyageUIController : MonoBehaviour
         if (startWithTonBtn) startWithTonBtn.onClick.AddListener(() => StartVoyage("ton"));
     }
 
+    private void OnEnable()
+    {
+        SyncFromJson();
+
+    }
+
     // 👇 вызывается из GameManager.ApplyUserData()
     public void InitAfterUserLoaded()
     {
@@ -65,13 +71,15 @@ public class VoyageUIController : MonoBehaviour
     {
         if (gm == null || gm.currentUser == null) return;
 
+        
         var houses = gm.GetType()
             .GetMethod("GetHouses", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance)
             .Invoke(gm, null) as GameManager.HousesWrapper;
 
         var voyage = houses?.items.Find(x => x.id == voyageId);
         if (voyage == null) return;
-
+        
+        
         if (voyage.timers != null && voyage.timers.Count > 0)
         {
             var t = voyage.timers[0];
@@ -94,6 +102,8 @@ public class VoyageUIController : MonoBehaviour
         }
 
         voyageProduct = gm.voyageProducts.Count > 0 ? gm.voyageProducts[0] : null;
+
+        Debug.Log(gm.voyageProducts[0]);
 
         if (voyageProduct != null)
         {

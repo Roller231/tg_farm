@@ -12,7 +12,7 @@ public class ShopScript : MonoBehaviour
 
     private List<GameObject> spawnedItems = new List<GameObject>();
 
-    private void Start()
+    private void OnEnable()
     {
         PopulateShop();
     }

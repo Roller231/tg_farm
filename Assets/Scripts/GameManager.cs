@@ -601,10 +601,18 @@ var payload = new UserDto
                     yield return StartCoroutine(FetchProductsByType("home1", list => home1Products = list));
                     yield return StartCoroutine(FetchProductsByType("home2", list => home2Products = list));
                     yield return StartCoroutine(FetchProductsByType("home3", list => home3Products = list));
+                    yield return StartCoroutine(FetchProductsByType("mine", list => mineProducts = list));
+                    yield return StartCoroutine(FetchProductsByType("voyage", list => voyageProducts = list));
+                    Debug.Log(voyageProducts[0].price);
 
                     productById.Clear();
                     void AddMap(IEnumerable<ProductDto> lst) { foreach (var p in lst) productById[p.id] = p; }
                     AddMap(allProducts); AddMap(home1Products); AddMap(home2Products); AddMap(home3Products);
+                    
+                    foreach (var voyage in FindObjectsOfType<VoyageUIController>())
+                    {
+                        voyage.InitAfterUserLoaded();
+                    }
                 }
                 else
                 {
@@ -856,7 +864,6 @@ var payload = new UserDto
         currentUser.coin -= h.price;
         h.active = true;
 
-        yield return PatchUserField("coin", currentUser.coin.ToString(CultureInfo.InvariantCulture));
         SaveHouses(); // 👈 сразу обновляем JSON в currentUser и сервере
         ApplyUserData();
     }
@@ -870,6 +877,8 @@ var payload = new UserDto
         string json = JsonUtility.ToJson(_housesCache);
         currentUser.houses = json;   // обновляем runtime-модель
         StartCoroutine(PatchUserField("houses", json)); // сразу шлём на сервер
+        StartCoroutine( PatchUserField("coin", currentUser.coin.ToString(CultureInfo.InvariantCulture)));
+
     }
 
 
