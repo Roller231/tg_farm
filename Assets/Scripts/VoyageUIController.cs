@@ -13,6 +13,7 @@ public class VoyageUIController : MonoBehaviour
     public Button startWithBezozBtn;
     public Button startWithTonBtn;
     public Text timerText;
+    public Button collectBtn; // 👈 новая кнопка "Собрать добычу"
 
     [Header("Runtime")]
     private GameManager.ProductDto voyageProduct;
@@ -32,12 +33,22 @@ public class VoyageUIController : MonoBehaviour
         if (startWithCoinBtn) startWithCoinBtn.onClick.AddListener(() => StartVoyage("coin"));
         if (startWithBezozBtn) startWithBezozBtn.onClick.AddListener(() => StartVoyage("bezoz"));
         if (startWithTonBtn) startWithTonBtn.onClick.AddListener(() => StartVoyage("ton"));
+
+        if (collectBtn)
+        {
+            collectBtn.onClick.AddListener(() =>
+            {
+                StartCoroutine(VoyagePayout());
+                StopVoyage();
+                collectBtn.gameObject.SetActive(false);
+            });
+            collectBtn.gameObject.SetActive(false); // скрываем при старте
+        }
     }
 
     private void OnEnable()
     {
         SyncFromJson();
-
     }
 
     // 👇 вызывается из GameManager.ApplyUserData()
@@ -61,25 +72,36 @@ public class VoyageUIController : MonoBehaviour
 
             if (leftSec <= 0)
             {
-                StartCoroutine(VoyagePayout());
-                StopVoyage();
+                // ⏸ стопаем таймер на "01"
+                leftSec = 1;
+                UpdateTimerText();
+
+                // через секунду таймер скрыть и показать кнопку
+                StartCoroutine(ShowCollectBtnAfterDelay());
+                isVoyaging = false;
             }
         }
+    }
+
+    private IEnumerator ShowCollectBtnAfterDelay()
+    {
+        yield return new WaitForSeconds(1f);
+
+        if (timerText) timerText.gameObject.SetActive(false); // таймер спрятан
+        if (collectBtn) collectBtn.gameObject.SetActive(true); // кнопка "Собрать добычу" появилась
     }
 
     private void SyncFromJson()
     {
         if (gm == null || gm.currentUser == null) return;
 
-        
         var houses = gm.GetType()
             .GetMethod("GetHouses", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance)
             .Invoke(gm, null) as GameManager.HousesWrapper;
 
         var voyage = houses?.items.Find(x => x.id == voyageId);
         if (voyage == null) return;
-        
-        
+
         if (voyage.timers != null && voyage.timers.Count > 0)
         {
             var t = voyage.timers[0];
@@ -102,8 +124,6 @@ public class VoyageUIController : MonoBehaviour
         }
 
         voyageProduct = gm.voyageProducts.Count > 0 ? gm.voyageProducts[0] : null;
-
-        Debug.Log(gm.voyageProducts[0]);
 
         if (voyageProduct != null)
         {
@@ -157,6 +177,9 @@ public class VoyageUIController : MonoBehaviour
 
         UpdateTimerText();
         gm.ApplyUserData();
+
+        if (timerText) timerText.gameObject.SetActive(true);
+        if (collectBtn) collectBtn.gameObject.SetActive(false);
     }
 
     private void StopVoyage()
@@ -164,6 +187,7 @@ public class VoyageUIController : MonoBehaviour
         isVoyaging = false;
         SetButtonsInteractable(true);
         timerText.text = "--:--:--";
+        timerText.gameObject.SetActive(true);
 
         var houses = gm.GetType()
             .GetMethod("GetHouses", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance)

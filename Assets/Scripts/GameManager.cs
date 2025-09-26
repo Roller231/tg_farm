@@ -106,6 +106,7 @@ public class GameManager : MonoBehaviour
         public int left;  
         public int lvl = 1;  
         public string currency; // "coin", "bezoz", "ton"
+        public string needEat; // "coin", "bezoz", "ton"
     }
 
     [Serializable] public class House
@@ -904,15 +905,16 @@ var payload = new UserDto
 
                 if (t.left <= 0)
                 {
+                    t.left = 1;
                     if (h.type == "mine")
                     {
-                        StartCoroutine(MinePayoutOnce(h, t.pid));
-                        h.timers.Clear();
+                        //StartCoroutine(MinePayoutOnce(h, t.pid));
+                        //h.timers.Clear();
                     }
                     else if (h.type == "voyage")
                     {
-                        StartCoroutine(VoyagePayoutOnce(h, t));
-                        h.timers.Clear();
+                        //StartCoroutine(VoyagePayoutOnce(h, t));
+                        //h.timers.Clear();
                     }
 
                 }
@@ -1206,9 +1208,10 @@ var payload = new UserDto
                 {
                     if (delta >= left0)
                     {
+                        t.left = 1;
                         // таймер успел закончиться оффлайн → награда и очистка
-                        yield return StartCoroutine(MinePayoutOnce(h, t.pid));
-                        h.timers.Clear();
+                        //yield return StartCoroutine(MinePayoutOnce(h, t.pid));
+                        //h.timers.Clear();
                         timersChanged = true;
                     }
                     else
@@ -1222,8 +1225,10 @@ var payload = new UserDto
                 {
                     if (delta >= left0)
                     {
-                        yield return StartCoroutine(VoyagePayoutOnce(h, t));
-                        h.timers.Clear();
+                        t.left = 1;
+
+                        //yield return StartCoroutine(VoyagePayoutOnce(h, t));
+                        //h.timers.Clear();
                         timersChanged = true;
                     }
                     else
