@@ -10,6 +10,7 @@ public class MineUIController : MonoBehaviour
     public int mineId = 4; // id шахты
     public Text headerTitle;
     public Button startMiningBtn;
+    public Button collectRewardBtn; // 👈 новая кнопка "Собрать добычу"
     public Text timerText;
 
     [Header("Runtime")]
@@ -18,29 +19,31 @@ public class MineUIController : MonoBehaviour
     private bool isMining;
     private float acc;
     private float syncAcc; // накопитель для синхронизации
+    private bool isRewardReady;
 
     public void Start()
     {
         if (headerTitle) headerTitle.text = "Шахта";
+
         if (startMiningBtn)
         {
             startMiningBtn.onClick.RemoveAllListeners();
             startMiningBtn.onClick.AddListener(StartMining);
         }
 
-        SyncFromJson(); // подтягиваем состояние шахты из JSON
-    }
+        if (collectRewardBtn)
+        {
+            collectRewardBtn.onClick.RemoveAllListeners();
+            collectRewardBtn.onClick.AddListener(() => StartCoroutine(CollectReward()));
+            collectRewardBtn.gameObject.SetActive(false);
+        }
 
-    // private void OnEnable()
-    // {
-    //     SyncFromJson();
-    //     startMiningBtn.onClick.RemoveAllListeners();
-    //     startMiningBtn.onClick.AddListener(StartMining);
-    // }
+        SyncFromJson();
+    }
 
     private void Update()
     {
-        if (isMining)
+        if (isMining && !isRewardReady)
         {
             acc += Time.deltaTime;
             if (acc >= 1f)
@@ -51,10 +54,17 @@ public class MineUIController : MonoBehaviour
                 if (leftSec < 0) leftSec = 0;
                 UpdateTimerText();
 
-                if (leftSec <= 0)
+                if (leftSec <= 3)
                 {
-                    StartCoroutine(MinePayout());
-                    StopMining();
+                    // стопаем на 1 сек
+                    leftSec = 1;
+                    UpdateTimerText();
+
+                    isRewardReady = true;
+                    isMining = false;
+
+                    timerText.gameObject.SetActive(false);
+                    collectRewardBtn.gameObject.SetActive(true);
                 }
             }
         }
@@ -68,15 +78,17 @@ public class MineUIController : MonoBehaviour
         }
     }
 
-    // Синхронизация с JSON домов
     private void SyncFromJson()
     {
         var houses = gm.GetType()
             .GetMethod("GetHouses", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance)
             .Invoke(gm, null) as GameManager.HousesWrapper;
 
+        
+        
         var mine = houses?.items.Find(x => x.id == mineId);
         if (mine == null) return;
+        startMiningBtn.interactable = true;
 
         if (mine.timers != null && mine.timers.Count > 0)
         {
@@ -84,24 +96,50 @@ public class MineUIController : MonoBehaviour
             if (gm.productById.TryGetValue(t.pid, out var p))
             {
                 mineProduct = p;
-                leftSec = t.left;   // 👈 тянем оставшееся время из JSON
-                isMining = true;
-                startMiningBtn.gameObject.SetActive(false);
-                UpdateTimerText();
+                leftSec = t.left;
+
+                if (leftSec > 3) // ещё идёт добыча
+                {
+                    isMining = true;
+                    isRewardReady = false;
+
+                    startMiningBtn.gameObject.SetActive(false);
+                    collectRewardBtn.gameObject.SetActive(false);
+                    timerText.gameObject.SetActive(true);
+
+                    UpdateTimerText();
+                }
+                else // добыча завершена, награда готова
+                {
+                    isMining = false;
+                    isRewardReady = true;
+
+                    startMiningBtn.gameObject.SetActive(false);
+                    collectRewardBtn.gameObject.SetActive(true);
+                    timerText.gameObject.SetActive(false);
+                }
+
+                Debug.Log($"SyncFromJson: isRewardReady={isRewardReady}, isMining={isMining}, leftSec={leftSec}");
             }
         }
         else
         {
-            isMining = false;
-            timerText.text = "--:--:--";
-            startMiningBtn.gameObject.SetActive(true);
-        }
-        
-        gm.ApplyUserData();
+            // вообще нет активного таймера
+            if (!isRewardReady) 
+            {
+                isMining = false;
+                timerText.text = "--:--:--";
+                startMiningBtn.gameObject.SetActive(true);
+                collectRewardBtn.gameObject.SetActive(false);
+                timerText.gameObject.SetActive(true);
 
+                Debug.Log($"SyncFromJson: no timers, isRewardReady={isRewardReady}");
+            }
+        }
+
+        gm.ApplyUserData();
     }
 
-    // Кнопка: начать майнинг
     private void StartMining()
     {
         if (gm == null || gm.currentUser == null) return;
@@ -120,17 +158,19 @@ public class MineUIController : MonoBehaviour
         var mine = houses.items.Find(x => x.id == mineId);
         if (mine == null) return;
 
-        // если уже есть таймер → не сбрасываем!
         if (mine.timers != null && mine.timers.Count > 0)
         {
             Debug.Log("[MINE] Уже идёт майнинг");
             return;
         }
 
-        // первый запуск
         leftSec = mineProduct.time;
         isMining = true;
+        isRewardReady = false;
+
         startMiningBtn.gameObject.SetActive(false);
+        collectRewardBtn.gameObject.SetActive(false);
+        timerText.gameObject.SetActive(true);
 
         mine.timers.Clear();
         mine.timers.Add(new GameManager.HouseTimer { pid = mineProduct.id, left = leftSec });
@@ -141,12 +181,21 @@ public class MineUIController : MonoBehaviour
         UpdateTimerText();
     }
 
-    // Остановка майнинга (по завершению)
+    private IEnumerator CollectReward()
+    {
+        yield return MinePayout();
+        StopMining();
+    }
+
     private void StopMining()
     {
         isMining = false;
+        isRewardReady = false;
+
         startMiningBtn.gameObject.SetActive(true);
+        collectRewardBtn.gameObject.SetActive(false);
         timerText.text = "--:--:--";
+        timerText.gameObject.SetActive(true);
 
         var houses = gm.GetType()
             .GetMethod("GetHouses", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance)
@@ -159,7 +208,6 @@ public class MineUIController : MonoBehaviour
         gm.StartCoroutine(gm.PatchUserField("houses", gm.currentUser.houses));
     }
 
-    // Выплата награды
     private IEnumerator MinePayout()
     {
         if (gm == null || gm.currentUser == null || mineProduct == null) yield break;
@@ -169,14 +217,14 @@ public class MineUIController : MonoBehaviour
 
         if (roll < 80)
         {
-            int rewardCoin = rnd.Next(0, Mathf.CeilToInt(mineProduct.sell_price));
+            int rewardCoin = rnd.Next(1, Mathf.CeilToInt(mineProduct.sell_price));
             gm.currentUser.coin += rewardCoin;
             yield return gm.StartCoroutine(gm.PatchUserField("coin", gm.currentUser.coin.ToString()));
             Debug.Log($"[MINE] Выдано {rewardCoin} монет");
         }
         else
         {
-            int rewardBezoz = rnd.Next(0, Mathf.Max(1, Mathf.CeilToInt(mineProduct.sell_price / 100f)));
+            int rewardBezoz = rnd.Next(1, Mathf.Max(1, Mathf.CeilToInt(mineProduct.sell_price / 100f)));
             gm.currentUser.bezoz += rewardBezoz;
             yield return gm.StartCoroutine(gm.PatchUserField("bezoz", gm.currentUser.bezoz.ToString()));
             Debug.Log($"[MINE] Выдано {rewardBezoz} BEZOZ");

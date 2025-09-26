@@ -150,7 +150,9 @@ public class HouseProductCard : MonoBehaviour
                 upgradeBtn.onClick.AddListener(() =>
                 {
                     gm.GiveReward(productId);
+                    timerText.gameObject.SetActive(true);
                     SyncWithGameManager();
+                    
                 });
                 
                 // 🔹 если надо, тут можно добавить вызов функции сбора:

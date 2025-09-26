@@ -905,14 +905,17 @@ var payload = new UserDto
 
                 if (t.left <= 0)
                 {
-                    t.left = 1;
                     if (h.type == "mine")
                     {
+                        t.left = 1;
+
                         //StartCoroutine(MinePayoutOnce(h, t.pid));
                         //h.timers.Clear();
                     }
                     else if (h.type == "voyage")
                     {
+                        t.left = 1;
+
                         //StartCoroutine(VoyagePayoutOnce(h, t));
                         //h.timers.Clear();
                     }
@@ -923,7 +926,6 @@ var payload = new UserDto
                 {
                     if(h.type != "mine" && h.type != "voyage")
                     {
-                        Debug.Log(h.price);
                         
                         
                         
@@ -957,6 +959,8 @@ var payload = new UserDto
     }
 
 
+    
+    
     public void GiveReward(int pid)
     {        
         var houses = GetHouses();
@@ -974,7 +978,9 @@ var payload = new UserDto
                     if(h.type != "mine" && h.type != "voyage")
                     {
                         StartCoroutine(HousePayout(h.id, t.pid));
-                        t.left = GetCycleTimeForProduct(t.pid);
+                        
+                        
+                        //t.left = GetCycleTimeForProduct(t.pid);
                     }
                 }
 
@@ -1055,7 +1061,7 @@ var payload = new UserDto
 
 
 
-    private int GetCycleTimeForProduct(int pid)
+    public int GetCycleTimeForProduct(int pid)
     {
         ProductDto p;
         if (productById.TryGetValue(pid, out p)) return Mathf.Max(1, p.time);
@@ -1208,7 +1214,7 @@ var payload = new UserDto
                 {
                     if (delta >= left0)
                     {
-                        t.left = 1;
+                        t.left = 2;
                         // таймер успел закончиться оффлайн → награда и очистка
                         //yield return StartCoroutine(MinePayoutOnce(h, t.pid));
                         //h.timers.Clear();
@@ -1225,7 +1231,7 @@ var payload = new UserDto
                 {
                     if (delta >= left0)
                     {
-                        t.left = 1;
+                        t.left = 2;
 
                         //yield return StartCoroutine(VoyagePayoutOnce(h, t));
                         //h.timers.Clear();
