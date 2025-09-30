@@ -221,6 +221,8 @@ public class MineUIController : MonoBehaviour
             gm.currentUser.coin += rewardCoin;
             yield return gm.StartCoroutine(gm.PatchUserField("coin", gm.currentUser.coin.ToString()));
             Debug.Log($"[MINE] Выдано {rewardCoin} монет");
+            StartCoroutine(RewardMenuShow("SunCoin", rewardCoin));
+
         }
         else
         {
@@ -228,9 +230,26 @@ public class MineUIController : MonoBehaviour
             gm.currentUser.bezoz += rewardBezoz;
             yield return gm.StartCoroutine(gm.PatchUserField("bezoz", gm.currentUser.bezoz.ToString()));
             Debug.Log($"[MINE] Выдано {rewardBezoz} BEZOZ");
+            StartCoroutine(RewardMenuShow("bezoz", rewardBezoz));
+
         }
 
         gm.ApplyUserData();
+    }
+    
+    public Text rewardText;
+    public Image rewardPanel;
+    
+    private IEnumerator RewardMenuShow(string type, float rew)
+    {
+        
+        Debug.Log("dsadasdasd");
+        rewardPanel.gameObject.SetActive(true);
+        rewardText.text = $"Вы получили: {rew} {type}";
+
+        yield return new WaitForSeconds(2f);
+        rewardPanel.gameObject.SetActive(false);
+
     }
 
     private void UpdateTimerText()

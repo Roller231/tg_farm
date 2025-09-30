@@ -13,6 +13,8 @@ public class VoyageUIController : MonoBehaviour
     public Button startWithBezozBtn;
     public Button startWithTonBtn;
     public Text timerText;
+    public Text rewardText;
+    public Image rewardPanel;
     public Button collectBtn; // 👈 новая кнопка "Собрать добычу"
 
     [Header("Runtime")]
@@ -212,6 +214,7 @@ public class VoyageUIController : MonoBehaviour
             gm.currentUser.coin += rewardCoin;
             yield return gm.StartCoroutine(gm.PatchUserField("coin", gm.currentUser.coin.ToString()));
             Debug.Log($"[VOYAGE] Получено {rewardCoin} монет за монеты");
+            StartCoroutine(RewardMenuShow("SunCoin", rewardCoin));
         }
         else if (activeCurrency == "bezoz")
         {
@@ -219,6 +222,8 @@ public class VoyageUIController : MonoBehaviour
             gm.currentUser.bezoz += rewardBezoz;
             yield return gm.StartCoroutine(gm.PatchUserField("bezoz", gm.currentUser.bezoz.ToString()));
             Debug.Log($"[VOYAGE] Получено {rewardBezoz} BEZOZ за BEZOZ");
+            StartCoroutine(RewardMenuShow(activeCurrency, rewardBezoz));
+
         }
         else if (activeCurrency == "ton")
         {
@@ -226,9 +231,23 @@ public class VoyageUIController : MonoBehaviour
             gm.currentUser.ton += rewardTon;
             yield return gm.StartCoroutine(gm.PatchUserField("ton", gm.currentUser.ton.ToString("F2")));
             Debug.Log($"[VOYAGE] Получено {rewardTon:F2} TON за TON");
+            StartCoroutine(RewardMenuShow(activeCurrency, rewardTon));
+
         }
 
         gm.ApplyUserData();
+    }
+
+    private IEnumerator RewardMenuShow(string type, float rew)
+    {
+        
+        Debug.Log("dsadasdasd");
+        rewardPanel.gameObject.SetActive(true);
+            rewardText.text = $"Вы получили: {rew} {type}";
+
+            yield return new WaitForSeconds(2f);
+            rewardPanel.gameObject.SetActive(false);
+
     }
 
     private void SetButtonsInteractable(bool active)

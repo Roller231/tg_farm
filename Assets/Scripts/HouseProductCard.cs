@@ -9,6 +9,7 @@ public class HouseProductCard : MonoBehaviour
     public Text rewardText;
     public Text name;
     public Text timerText;
+    public Text percentText;
     public Button upgradeBtn;
 
     [Header("Runtime")]
@@ -119,6 +120,27 @@ public class HouseProductCard : MonoBehaviour
     {
         if (product == null || gm == null) return;
 
+        
+        if (lvl == 1)
+        {
+            percentText.text = "Успех улучшения: " + "50%";
+        }  // 50%
+        if (lvl == 2)
+        {
+            percentText.text = "Успех улучшения: " + "25%";
+
+        }  // 25%
+        if (lvl == 3)
+        {
+            percentText.text = "Успех улучшения: " + "10%";
+
+        }  // 10%
+        if (lvl == 4)
+        {
+            percentText.text = "Уровень максимальный";
+
+        }  // 10%
+        
         if (name)
             name.text = $"{product.name} (lvl {lvl})";
 
