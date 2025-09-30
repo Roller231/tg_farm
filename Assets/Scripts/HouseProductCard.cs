@@ -17,6 +17,7 @@ public class HouseProductCard : MonoBehaviour
 
     private int leftSec;
     private int lvl;
+    private bool needEat; // локальный флаг
     private GameManager.ProductDto product;
 
     private GameManager gm;
@@ -32,14 +33,14 @@ public class HouseProductCard : MonoBehaviour
         this.product = product;
         this.lvl = lvl;
         leftSec = leftSeconds;
+        needEat = false;
 
-        // слушатель кнопки
         upgradeBtn.onClick.RemoveAllListeners();
         upgradeBtn.onClick.AddListener(() =>
         {
+            upgradeBtn.interactable = false; // 🔴 сразу блокируем
             gm.UpgradeProductInHouseButton(houseId, product.id);
-            SyncWithGameManager();  // подтянем актуальное с сервера
-
+            SyncWithGameManager();
         });
 
         if (productImage && !string.IsNullOrEmpty(product.image_ready_link))
@@ -47,8 +48,8 @@ public class HouseProductCard : MonoBehaviour
             StartCoroutine(LoadImage(product.image_ready_link));
         }
 
-        RefreshUI();            // сразу обновляем UI
-        SyncWithGameManager();  // подтянем актуальное с сервера
+        RefreshUI();
+        SyncWithGameManager();
         UpdateTimerText();
     }
 
@@ -56,21 +57,22 @@ public class HouseProductCard : MonoBehaviour
     {
         GetComponentInChildren<Text>().text = "Собрать ресурсы";
         timerText.gameObject.SetActive(false);
-        
+
         upgradeBtn.onClick.RemoveAllListeners();
         upgradeBtn.onClick.AddListener(() =>
         {
-            
-            SyncWithGameManager();  // подтянем актуальное с сервера
-
+            upgradeBtn.interactable = false; // 🔴 сразу блокируем
+            gm.CollectHouseProductButton(houseId, productId);
+            SyncWithGameManager();
         });
     }
 
     private void Update()
     {
         RefreshUI();
-        
-        if (leftSec > 0)
+
+        // пока needEat = true — таймер не идёт
+        if (!needEat && leftSec > 0)
         {
             acc += Time.deltaTime;
             if (acc >= 1f)
@@ -83,7 +85,7 @@ public class HouseProductCard : MonoBehaviour
             }
         }
 
-        // каждые 3 сек синхронизируем с сервером
+        // каждые 3 сек подтягиваем актуал
         syncAcc += Time.deltaTime;
         if (syncAcc >= 3f)
         {
@@ -105,8 +107,10 @@ public class HouseProductCard : MonoBehaviour
         var timer = house.timers.Find(t => t.pid == productId);
         if (timer == null) return;
 
-        leftSec = timer.left; 
-        lvl = timer.lvl;   // 👈 теперь уровень подтягиваем с сервера
+        leftSec = timer.left;
+        lvl = timer.lvl;
+        needEat = !string.IsNullOrEmpty(timer.needEat) && timer.needEat.Equals("true", StringComparison.OrdinalIgnoreCase);
+
         RefreshUI();
         UpdateTimerText();
     }
@@ -115,11 +119,9 @@ public class HouseProductCard : MonoBehaviour
     {
         if (product == null || gm == null) return;
 
-        // Название + уровень
-        if (name) 
+        if (name)
             name.text = $"{product.name} (lvl {lvl})";
 
-        // Награда
         if (rewardText)
         {
             if (lvl < 4)
@@ -129,72 +131,91 @@ public class HouseProductCard : MonoBehaviour
             }
             else
             {
-                rewardText.text = $"+{product.sell_price /100} TON";
+                rewardText.text = $"+{product.sell_price / 100f} TON";
             }
         }
 
-        // Кнопка
-        if (upgradeBtn)
+        if (!upgradeBtn) return;
+
+        // если требуется «кормление» — показываем кнопку восстановления
+        if (needEat)
         {
-            // 🆕 Проверка на таймер
-            if (leftSec <= 4)
+            timerText.gameObject.SetActive(false);
+
+            float restoreCost = Mathf.Max(1f, product.price / 100f);
+            upgradeBtn.interactable = gm.currentUser.coin >= restoreCost;
+            upgradeBtn.GetComponentInChildren<Text>().text = $"Восстановить ({restoreCost:0})";
+
+            upgradeBtn.onClick.RemoveAllListeners();
+            upgradeBtn.onClick.AddListener(() =>
             {
-                timerText.gameObject.SetActive(false);
-                
-                upgradeBtn.interactable = true;
-                upgradeBtn.GetComponentInChildren<Text>().text = "Собрать ресурсы";
+                upgradeBtn.interactable = false; // 🔴 сразу блокируем
+                gm.RestoreHouseProductButton(houseId, productId);
+                SyncWithGameManager();
+            });
 
-                // убираем старые действия
-                upgradeBtn.onClick.RemoveAllListeners();
+            gm.ApplyUserData();
+            return;
+        }
 
-                upgradeBtn.onClick.AddListener(() =>
-                {
-                    gm.GiveReward(productId);
-                    timerText.gameObject.SetActive(true);
-                    SyncWithGameManager();
-                    
-                });
-                
-                // 🔹 если надо, тут можно добавить вызов функции сбора:
-                // upgradeBtn.onClick.AddListener(() => CollectReward());
-            }
+        // если таймер дойдёт до нуля — предлагаем «Собрать»
+        if (leftSec <= 0)
+        {
+            timerText.gameObject.SetActive(false);
 
+            upgradeBtn.interactable = true;
+            upgradeBtn.GetComponentInChildren<Text>().text = "Собрать ресурсы";
 
-            else if (lvl >= 4)
+            upgradeBtn.onClick.RemoveAllListeners();
+            upgradeBtn.onClick.AddListener(() =>
             {
-                upgradeBtn.interactable = false;
-                upgradeBtn.GetComponentInChildren<Text>().text = "MAX";
-            }
-            else
+                upgradeBtn.interactable = false; // 🔴 сразу блокируем
+                gm.CollectHouseProductButton(houseId, productId);
+                SyncWithGameManager();
+            });
+
+            gm.ApplyUserData();
+            return;
+        }
+
+        // обычный режим — апгрейд
+        float upgradeCost = product.price * (lvl + 1) * 2f;
+        bool canAfford = gm.currentUser.coin >= upgradeCost;
+
+        timerText.gameObject.SetActive(true);
+        upgradeBtn.interactable = canAfford;
+
+        if (lvl >= 4)
+        {
+            upgradeBtn.interactable = false;
+            upgradeBtn.GetComponentInChildren<Text>().text = "MAX";
+        }
+        else
+        {
+            upgradeBtn.GetComponentInChildren<Text>().text = $"Улучшить ({upgradeCost:0} монет)";
+            upgradeBtn.onClick.RemoveAllListeners();
+            upgradeBtn.onClick.AddListener(() =>
             {
-                float upgradeCost = product.price * (lvl + 1) * 2f;
-                bool canAfford = gm.currentUser.coin >= upgradeCost;
-
-                timerText.gameObject.SetActive(true);
-
-                
-                upgradeBtn.interactable = canAfford;
-                upgradeBtn.GetComponentInChildren<Text>().text =
-                    $"Улучшить ({upgradeCost:0} монет)";
-
-                // обновляем действие кнопки
-                upgradeBtn.onClick.RemoveAllListeners();
-                upgradeBtn.onClick.AddListener(() =>
-                {
-                    gm.UpgradeProductInHouseButton(houseId, product.id);
-                    SyncWithGameManager();
-                });
-            }
+                upgradeBtn.interactable = false; // 🔴 сразу блокируем
+                gm.UpgradeProductInHouseButton(houseId, product.id);
+                SyncWithGameManager();
+            });
         }
 
         gm.ApplyUserData();
     }
 
-
     private void UpdateTimerText()
     {
         if (timerText == null) return;
-        TimeSpan ts = TimeSpan.FromSeconds(leftSec);
+
+        if (needEat)
+        {
+            timerText.text = "--:--";
+            return;
+        }
+
+        TimeSpan ts = TimeSpan.FromSeconds(Mathf.Max(0, leftSec));
         timerText.text = $"{ts.Minutes:D2}:{ts.Seconds:D2}";
     }
 
