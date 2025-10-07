@@ -15,13 +15,14 @@ public class VoyageUIController : MonoBehaviour
     public Text timerText;
     public Text rewardText;
     public Image rewardPanel;
-    public Button collectBtn; // 👈 новая кнопка "Собрать добычу"
+    public Button collectBtn;
+    public Text chanceText; // 👈 новый текст для отображения шансов
 
     [Header("Runtime")]
     private GameManager.ProductDto voyageProduct;
     private int leftSec;
     private bool isVoyaging;
-    private string activeCurrency; // какая валюта выбрана
+    private string activeCurrency;
     private float acc;
 
     [SerializeField] private Text count1;
@@ -44,20 +45,12 @@ public class VoyageUIController : MonoBehaviour
                 StopVoyage();
                 collectBtn.gameObject.SetActive(false);
             });
-            collectBtn.gameObject.SetActive(false); // скрываем при старте
+            collectBtn.gameObject.SetActive(false);
         }
     }
 
-    private void OnEnable()
-    {
-        SyncFromJson();
-    }
-
-    // 👇 вызывается из GameManager.ApplyUserData()
-    public void InitAfterUserLoaded()
-    {
-        SyncFromJson();
-    }
+    private void OnEnable() => SyncFromJson();
+    public void InitAfterUserLoaded() => SyncFromJson();
 
     private void Update()
     {
@@ -74,11 +67,8 @@ public class VoyageUIController : MonoBehaviour
 
             if (leftSec <= 0)
             {
-                // ⏸ стопаем таймер на "01"
                 leftSec = 1;
                 UpdateTimerText();
-
-                // через секунду таймер скрыть и показать кнопку
                 StartCoroutine(ShowCollectBtnAfterDelay());
                 isVoyaging = false;
             }
@@ -88,9 +78,8 @@ public class VoyageUIController : MonoBehaviour
     private IEnumerator ShowCollectBtnAfterDelay()
     {
         yield return new WaitForSeconds(1f);
-
-        if (timerText) timerText.gameObject.SetActive(false); // таймер спрятан
-        if (collectBtn) collectBtn.gameObject.SetActive(true); // кнопка "Собрать добычу" появилась
+        if (timerText) timerText.gameObject.SetActive(false);
+        if (collectBtn) collectBtn.gameObject.SetActive(true);
     }
 
     private void SyncFromJson()
@@ -116,8 +105,20 @@ public class VoyageUIController : MonoBehaviour
                 SetButtonsInteractable(false);
                 UpdateTimerText();
                 gm.ApplyUserData();
+
+                // 👇 показываем шансы при активном походе
+                if (chanceText)
+                {
+                    if (activeCurrency == "coin")
+                        chanceText.text = "🎲 Шансы награды:\nМонеты 90% / BEZOZ 8% / TON 2%";
+                    else if (activeCurrency == "bezoz")
+                        chanceText.text = "🎲 Шансы награды:\nМонеты 70% / BEZOZ 25% / TON 5%";
+                    else if (activeCurrency == "ton")
+                        chanceText.text = "🎲 Шансы награды:\nМонеты 50% / BEZOZ 35% / TON 15%";
+                }
             }
         }
+
         else
         {
             isVoyaging = false;
@@ -146,12 +147,12 @@ public class VoyageUIController : MonoBehaviour
             return;
         }
 
-        // проверка валюты
+        // Проверка валюты
         if (currency == "coin" && gm.currentUser.coin < voyageProduct.price) { Debug.Log("Нет монет"); return; }
         if (currency == "bezoz" && gm.currentUser.bezoz < voyageProduct.price / 100) { Debug.Log("Нет BEZOZ"); return; }
         if (currency == "ton" && gm.currentUser.ton < voyageProduct.price / 1000) { Debug.Log("Нет TON"); return; }
 
-        // списываем
+        // Списание
         if (currency == "coin") gm.currentUser.coin -= voyageProduct.price;
         if (currency == "bezoz") gm.currentUser.bezoz -= voyageProduct.price / 100;
         if (currency == "ton") gm.currentUser.ton -= voyageProduct.price / 1000;
@@ -160,12 +161,24 @@ public class VoyageUIController : MonoBehaviour
             (currency == "ton" ? gm.currentUser.ton.ToString("F2") :
             (currency == "coin" ? gm.currentUser.coin.ToString() : gm.currentUser.bezoz.ToString()))));
 
-        // запуск таймера
+        // Настройка таймера
         leftSec = voyageProduct.time;
         activeCurrency = currency;
         isVoyaging = true;
         SetButtonsInteractable(false);
 
+        // Отображаем шансы
+        if (chanceText)
+        {
+            if (currency == "coin")
+                chanceText.text = "🎲 Шансы награды:\nМонеты 90% / BEZOZ 8% / TON 2%";
+            else if (currency == "bezoz")
+                chanceText.text = "🎲 Шансы награды:\nМонеты 70% / BEZOZ 25% / TON 5%";
+            else if (currency == "ton")
+                chanceText.text = "🎲 Шансы награды:\nМонеты 50% / BEZOZ 35% / TON 15%";
+        }
+
+        // Обновляем данные домов
         var houses = gm.GetType()
             .GetMethod("GetHouses", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance)
             .Invoke(gm, null) as GameManager.HousesWrapper;
@@ -207,47 +220,62 @@ public class VoyageUIController : MonoBehaviour
         if (gm == null || gm.currentUser == null || voyageProduct == null) yield break;
 
         System.Random rnd = new System.Random();
+        float roll = (float)rnd.NextDouble() * 100f;
+        string rewardType = "";
 
+        // Определяем тип награды по шансам (по тексту на UI)
         if (activeCurrency == "coin")
         {
-            int rewardCoin = rnd.Next(1, Mathf.CeilToInt(voyageProduct.sell_price * 2));
-            gm.currentUser.coin += rewardCoin;
-            yield return gm.StartCoroutine(gm.PatchUserField("coin", gm.currentUser.coin.ToString()));
-            Debug.Log($"[VOYAGE] Получено {rewardCoin} монет за монеты");
-            StartCoroutine(RewardMenuShow("SunCoin", rewardCoin));
+            if (roll < 90f) rewardType = "coin";
+            else if (roll < 98f) rewardType = "bezoz";
+            else rewardType = "ton";
         }
         else if (activeCurrency == "bezoz")
         {
-            int rewardBezoz = rnd.Next(1, Mathf.CeilToInt(voyageProduct.sell_price / 50f));
-            gm.currentUser.bezoz += rewardBezoz;
-            yield return gm.StartCoroutine(gm.PatchUserField("bezoz", gm.currentUser.bezoz.ToString()));
-            Debug.Log($"[VOYAGE] Получено {rewardBezoz} BEZOZ за BEZOZ");
-            StartCoroutine(RewardMenuShow(activeCurrency, rewardBezoz));
-
+            if (roll < 70f) rewardType = "coin";
+            else if (roll < 95f) rewardType = "bezoz";
+            else rewardType = "ton";
         }
         else if (activeCurrency == "ton")
         {
-            float rewardTon = Mathf.Max(0.01f, voyageProduct.sell_price / 500f);
-            gm.currentUser.ton += rewardTon;
-            yield return gm.StartCoroutine(gm.PatchUserField("ton", gm.currentUser.ton.ToString("F2")));
-            Debug.Log($"[VOYAGE] Получено {rewardTon:F2} TON за TON");
-            StartCoroutine(RewardMenuShow(activeCurrency, rewardTon));
+            if (roll < 50f) rewardType = "coin";
+            else if (roll < 85f) rewardType = "bezoz";
+            else rewardType = "ton";
+        }
 
+        // Выдача награды
+        if (rewardType == "coin")
+        {
+            int reward = rnd.Next(1, Mathf.CeilToInt(voyageProduct.sell_price * 2));
+            gm.currentUser.coin += reward;
+            yield return gm.StartCoroutine(gm.PatchUserField("coin", gm.currentUser.coin.ToString()));
+            StartCoroutine(RewardMenuShow("SunCoin", reward));
+        }
+        else if (rewardType == "bezoz")
+        {
+            int reward = rnd.Next(1, Mathf.CeilToInt(voyageProduct.sell_price / 50f));
+            gm.currentUser.bezoz += reward;
+            yield return gm.StartCoroutine(gm.PatchUserField("bezoz", gm.currentUser.bezoz.ToString()));
+            StartCoroutine(RewardMenuShow("BEZOZ", reward));
+        }
+        else if (rewardType == "ton")
+        {
+            float reward = Mathf.Max(0.01f, voyageProduct.sell_price / 500f);
+            gm.currentUser.ton += reward;
+            yield return gm.StartCoroutine(gm.PatchUserField("ton", gm.currentUser.ton.ToString("F2")));
+            StartCoroutine(RewardMenuShow("TON", reward));
         }
 
         gm.ApplyUserData();
     }
 
+
     private IEnumerator RewardMenuShow(string type, float rew)
     {
-        
-        Debug.Log("dsadasdasd");
         rewardPanel.gameObject.SetActive(true);
-            rewardText.text = $"Вы получили: {rew} {type}";
-
-            yield return new WaitForSeconds(2f);
-            rewardPanel.gameObject.SetActive(false);
-
+        rewardText.text = $"Вы получили: {rew} {type}";
+        yield return new WaitForSeconds(2f);
+        rewardPanel.gameObject.SetActive(false);
     }
 
     private void SetButtonsInteractable(bool active)
