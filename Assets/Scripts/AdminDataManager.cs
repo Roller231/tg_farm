@@ -6,8 +6,7 @@ using UnityEngine.Networking;
 
 public class AdminDataManager : MonoBehaviour
 {
-    [Header("Backend")]
-    public string backendUrl = "http://127.0.0.1:8009/admindata"; // эндпоинт на бэке
+    private string BackendUrl => ApiConfig.BaseUrl + "/admindata"; // эндпоинт на бэке
 
     [Serializable]
     public class AdminDataDto
@@ -44,7 +43,7 @@ public class AdminDataManager : MonoBehaviour
 
     private IEnumerator FetchAllAdminData()
     {
-        using (UnityWebRequest req = UnityWebRequest.Get(backendUrl))
+        using (UnityWebRequest req = UnityWebRequest.Get(BackendUrl))
         {
             yield return req.SendWebRequest();
 

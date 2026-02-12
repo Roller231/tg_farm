@@ -27,7 +27,7 @@ public class AdminDataDto
 
 public class RewardsManager : MonoBehaviour
 {
-    public string rewardsUrl = "http://0.0.0.0:8015/rewards"; // твой FastAPI endpoint
+    private string RewardsUrl => ApiConfig.BaseUrl + "/rewards"; // твой FastAPI endpoint
 
     public List<Reward> premiumRewards = new List<Reward>();
     public List<Reward> normalRewards = new List<Reward>();
@@ -63,7 +63,7 @@ public class RewardsManager : MonoBehaviour
             Destroy(child.gameObject);
         }
         
-        using (UnityWebRequest request = UnityWebRequest.Get(rewardsUrl))
+        using (UnityWebRequest request = UnityWebRequest.Get(RewardsUrl))
         {
             yield return request.SendWebRequest();
 

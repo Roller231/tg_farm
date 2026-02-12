@@ -24,6 +24,8 @@ public class VoyageUIController : MonoBehaviour
     private bool isVoyaging;
     private string activeCurrency;
     private float acc;
+    private bool isCollecting;
+    private bool isStarting;
 
     [SerializeField] private Text count1;
     [SerializeField] private Text count2;
@@ -39,14 +41,22 @@ public class VoyageUIController : MonoBehaviour
 
         if (collectBtn)
         {
-            collectBtn.onClick.AddListener(() =>
-            {
-                StartCoroutine(VoyagePayout());
-                StopVoyage();
-                collectBtn.gameObject.SetActive(false);
-            });
+            collectBtn.onClick.AddListener(() => StartCoroutine(CollectVoyageReward()));
             collectBtn.gameObject.SetActive(false);
         }
+    }
+
+    private IEnumerator CollectVoyageReward()
+    {
+        if (isCollecting) yield break;
+        isCollecting = true;
+        if (collectBtn) collectBtn.interactable = false;
+
+        yield return StartCoroutine(VoyagePayout());
+        StopVoyage();
+        if (collectBtn) collectBtn.gameObject.SetActive(false);
+
+        isCollecting = false;
     }
 
     private void OnEnable() => SyncFromJson();
@@ -110,9 +120,9 @@ public class VoyageUIController : MonoBehaviour
                 if (chanceText)
                 {
                     if (activeCurrency == "coin")
-                        chanceText.text = "🎲 Шансы награды:\nМонеты 90% / BEZOZ 8% / TON 2%";
+                        chanceText.text = "🎲 Шансы награды:\nМонеты 90% / BEZOZ 10%";
                     else if (activeCurrency == "bezoz")
-                        chanceText.text = "🎲 Шансы награды:\nМонеты 70% / BEZOZ 25% / TON 5%";
+                        chanceText.text = "🎲 Шансы награды:\nМонеты 70% / BEZOZ 30%";
                     else if (activeCurrency == "ton")
                         chanceText.text = "🎲 Шансы награды:\nМонеты 50% / BEZOZ 35% / TON 15%";
                 }
@@ -140,17 +150,23 @@ public class VoyageUIController : MonoBehaviour
     {
         if (gm == null || gm.currentUser == null) return;
 
+        if (isStarting) return;
+        isStarting = true;
+        SetButtonsInteractable(false);
+
         voyageProduct = gm.voyageProducts.Count > 0 ? gm.voyageProducts[0] : null;
         if (voyageProduct == null)
         {
             Debug.LogError("[VOYAGE] Нет продуктов типа voyage");
+            isStarting = false;
+            SetButtonsInteractable(true);
             return;
         }
 
         // Проверка валюты
-        if (currency == "coin" && gm.currentUser.coin < voyageProduct.price) { Debug.Log("Нет монет"); return; }
-        if (currency == "bezoz" && gm.currentUser.bezoz < voyageProduct.price / 100) { Debug.Log("Нет BEZOZ"); return; }
-        if (currency == "ton" && gm.currentUser.ton < voyageProduct.price / 1000) { Debug.Log("Нет TON"); return; }
+        if (currency == "coin" && gm.currentUser.coin < voyageProduct.price) { Debug.Log("Нет монет"); isStarting = false; SetButtonsInteractable(true); return; }
+        if (currency == "bezoz" && gm.currentUser.bezoz < voyageProduct.price / 100) { Debug.Log("Нет BEZOZ"); isStarting = false; SetButtonsInteractable(true); return; }
+        if (currency == "ton" && gm.currentUser.ton < voyageProduct.price / 1000) { Debug.Log("Нет TON"); isStarting = false; SetButtonsInteractable(true); return; }
 
         // Списание
         if (currency == "coin") gm.currentUser.coin -= voyageProduct.price;
@@ -165,15 +181,14 @@ public class VoyageUIController : MonoBehaviour
         leftSec = voyageProduct.time;
         activeCurrency = currency;
         isVoyaging = true;
-        SetButtonsInteractable(false);
 
         // Отображаем шансы
         if (chanceText)
         {
             if (currency == "coin")
-                chanceText.text = "🎲 Шансы награды:\nМонеты 90% / BEZOZ 8% / TON 2%";
+                chanceText.text = "🎲 Шансы награды:\nМонеты 90% / BEZOZ 10%";
             else if (currency == "bezoz")
-                chanceText.text = "🎲 Шансы награды:\nМонеты 70% / BEZOZ 25% / TON 5%";
+                chanceText.text = "🎲 Шансы награды:\nМонеты 70% / BEZOZ 30%";
             else if (currency == "ton")
                 chanceText.text = "🎲 Шансы награды:\nМонеты 50% / BEZOZ 35% / TON 15%";
         }
@@ -195,6 +210,8 @@ public class VoyageUIController : MonoBehaviour
 
         if (timerText) timerText.gameObject.SetActive(true);
         if (collectBtn) collectBtn.gameObject.SetActive(false);
+
+        isStarting = false;
     }
 
     private void StopVoyage()
@@ -227,14 +244,12 @@ public class VoyageUIController : MonoBehaviour
         if (activeCurrency == "coin")
         {
             if (roll < 90f) rewardType = "coin";
-            else if (roll < 98f) rewardType = "bezoz";
-            else rewardType = "ton";
+            else rewardType = "bezoz";
         }
         else if (activeCurrency == "bezoz")
         {
             if (roll < 70f) rewardType = "coin";
-            else if (roll < 95f) rewardType = "bezoz";
-            else rewardType = "ton";
+            else rewardType = "bezoz";
         }
         else if (activeCurrency == "ton")
         {

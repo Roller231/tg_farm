@@ -20,6 +20,8 @@ public class MineUIController : MonoBehaviour
     private float acc;
     private float syncAcc; // накопитель для синхронизации
     private bool isRewardReady;
+    private bool isCollecting;
+    private bool isStarting;
 
     public void Start()
     {
@@ -144,10 +146,16 @@ public class MineUIController : MonoBehaviour
     {
         if (gm == null || gm.currentUser == null) return;
 
+        if (isStarting) return;
+        isStarting = true;
+        if (startMiningBtn) startMiningBtn.interactable = false;
+
         mineProduct = gm.mineProducts.Count > 0 ? gm.mineProducts[0] : null;
         if (mineProduct == null)
         {
             Debug.LogError("[MINE] Нет продуктов типа mine");
+            isStarting = false;
+            if (startMiningBtn) startMiningBtn.interactable = true;
             return;
         }
 
@@ -161,6 +169,7 @@ public class MineUIController : MonoBehaviour
         if (mine.timers != null && mine.timers.Count > 0)
         {
             Debug.Log("[MINE] Уже идёт майнинг");
+            isStarting = false;
             return;
         }
 
@@ -179,12 +188,20 @@ public class MineUIController : MonoBehaviour
         gm.StartCoroutine(gm.PatchUserField("houses", gm.currentUser.houses));
 
         UpdateTimerText();
+
+        isStarting = false;
     }
 
     private IEnumerator CollectReward()
     {
+        if (isCollecting) yield break;
+        isCollecting = true;
+        if (collectRewardBtn) collectRewardBtn.interactable = false;
+
         yield return MinePayout();
         StopMining();
+
+        isCollecting = false;
     }
 
     private void StopMining()
@@ -217,7 +234,8 @@ public class MineUIController : MonoBehaviour
 
         if (roll < 80)
         {
-            int rewardCoin = rnd.Next(1, Mathf.CeilToInt(mineProduct.sell_price));
+            int maxCoinInclusive = Mathf.Max(1, Mathf.CeilToInt(mineProduct.sell_price));
+            int rewardCoin = rnd.Next(1, maxCoinInclusive + 1);
             gm.currentUser.coin += rewardCoin;
             yield return gm.StartCoroutine(gm.PatchUserField("coin", gm.currentUser.coin.ToString()));
             Debug.Log($"[MINE] Выдано {rewardCoin} монет");
@@ -226,7 +244,8 @@ public class MineUIController : MonoBehaviour
         }
         else
         {
-            int rewardBezoz = rnd.Next(1, Mathf.Max(1, Mathf.CeilToInt(mineProduct.sell_price / 100f)));
+            int maxBezozInclusive = Mathf.Max(1, Mathf.CeilToInt(mineProduct.sell_price / 100f));
+            int rewardBezoz = rnd.Next(1, maxBezozInclusive + 1);
             gm.currentUser.bezoz += rewardBezoz;
             yield return gm.StartCoroutine(gm.PatchUserField("bezoz", gm.currentUser.bezoz.ToString()));
             Debug.Log($"[MINE] Выдано {rewardBezoz} BEZOZ");

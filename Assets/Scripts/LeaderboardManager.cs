@@ -9,9 +9,8 @@ using UnityEngine.UI;
 
 public class LeaderboardManager : MonoBehaviour
 {
-    [Header("Backend")]
     [Tooltip("Полный URL до /users, например https://example.com/users")]
-    public string usersApiUrl = "http://127.0.0.1:8009/users";
+    private string UsersApiUrl => ApiConfig.BaseUrl + "/users";
 
     [Header("UI")]
     [Tooltip("Префаб элемента списка (FriendList с usernameText и rewardText)")]
@@ -117,7 +116,7 @@ public class LeaderboardManager : MonoBehaviour
     {
         _cache.Clear();
 
-        using (UnityWebRequest req = UnityWebRequest.Get(usersApiUrl))
+        using (UnityWebRequest req = UnityWebRequest.Get(UsersApiUrl))
         {
             yield return req.SendWebRequest();
 

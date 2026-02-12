@@ -8,9 +8,8 @@ using UTeleApp;
 
 public class FriendManager : MonoBehaviour
 {
-   [Header("Backend")]
     [Tooltip("Полный URL до endpoint-а списка пользователей, например https://example.com/users")]
-    public string usersApiUrl = "http://127.0.0.1:8009/users";
+    private string UsersApiUrl => ApiConfig.BaseUrl + "/users";
 
     [Header("Current user")]
     [Tooltip("Ваш Telegram ID как строка (должен совпадать с полем refId у рефералов)")]
@@ -80,7 +79,7 @@ public class FriendManager : MonoBehaviour
 
     private IEnumerator LoadReferralsCoroutine()
     {
-        using (UnityWebRequest req = UnityWebRequest.Get(usersApiUrl))
+        using (UnityWebRequest req = UnityWebRequest.Get(UsersApiUrl))
         {
             yield return req.SendWebRequest();
 

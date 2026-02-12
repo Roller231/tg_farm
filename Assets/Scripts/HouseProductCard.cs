@@ -1,4 +1,5 @@
 using System;
+using System.Collections;
 using UnityEngine;
 using UnityEngine.UI;
 
@@ -25,6 +26,9 @@ public class HouseProductCard : MonoBehaviour
     private float acc;      // накопитель времени
     private float syncAcc;  // накопитель для синхронизации
 
+    private bool uiActionLocked;
+    private Coroutine unlockCo;
+
     // Инициализация карточки
     public void Init(GameManager gameManager, int houseId, GameManager.ProductDto product, int leftSeconds, int lvl)
     {
@@ -40,6 +44,7 @@ public class HouseProductCard : MonoBehaviour
         upgradeBtn.onClick.AddListener(() =>
         {
             upgradeBtn.interactable = false; // 🔴 сразу блокируем
+            LockUiAction();
             gm.UpgradeProductInHouseButton(houseId, product.id);
             SyncWithGameManager();
         });
@@ -63,9 +68,25 @@ public class HouseProductCard : MonoBehaviour
         upgradeBtn.onClick.AddListener(() =>
         {
             upgradeBtn.interactable = false; // 🔴 сразу блокируем
+            LockUiAction();
             gm.CollectHouseProductButton(houseId, productId);
             SyncWithGameManager();
         });
+    }
+
+    private void LockUiAction()
+    {
+        uiActionLocked = true;
+        if (unlockCo != null) StopCoroutine(unlockCo);
+        unlockCo = StartCoroutine(UnlockUiActionAfterDelay());
+    }
+
+    private IEnumerator UnlockUiActionAfterDelay()
+    {
+        yield return new WaitForSeconds(1.0f);
+        uiActionLocked = false;
+        unlockCo = null;
+        RefreshUI();
     }
 
     private void Update()
@@ -120,30 +141,26 @@ public class HouseProductCard : MonoBehaviour
     {
         if (product == null || gm == null) return;
 
-        
+        if (upgradeBtn && uiActionLocked)
+        {
+            upgradeBtn.interactable = false;
+        }
+
+        // === Процент успеха улучшения ===
         if (lvl == 1)
-        {
-            percentText.text = "Успех улучшения: " + "50%";
-        }  // 50%
-        if (lvl == 2)
-        {
-            percentText.text = "Успех улучшения: " + "25%";
-
-        }  // 25%
-        if (lvl == 3)
-        {
-            percentText.text = "Успех улучшения: " + "10%";
-
-        }  // 10%
-        if (lvl == 4)
-        {
+            percentText.text = "Успех улучшения: 50%";
+        else if (lvl == 2)
+            percentText.text = "Успех улучшения: 25%";
+        else if (lvl == 3)
+            percentText.text = "Успех улучшения: 10%";
+        else if (lvl >= 4)
             percentText.text = "Уровень максимальный";
 
-        }  // 10%
-        
+        // === Название продукта ===
         if (name)
             name.text = $"{product.name} (lvl {lvl})";
 
+        // === Награда ===
         if (rewardText)
         {
             if (lvl < 4)
@@ -159,19 +176,20 @@ public class HouseProductCard : MonoBehaviour
 
         if (!upgradeBtn) return;
 
-        // если требуется «кормление» — показываем кнопку восстановления
+        // === Если требуется «кормление» ===
         if (needEat)
         {
             timerText.gameObject.SetActive(false);
 
             float restoreCost = Mathf.Max(1f, product.price / 100f);
-            upgradeBtn.interactable = gm.currentUser.coin >= restoreCost;
+            upgradeBtn.interactable = !uiActionLocked && (gm.currentUser.coin >= restoreCost);
             upgradeBtn.GetComponentInChildren<Text>().text = $"Восстановить ({restoreCost:0})";
 
             upgradeBtn.onClick.RemoveAllListeners();
             upgradeBtn.onClick.AddListener(() =>
             {
-                upgradeBtn.interactable = false; // 🔴 сразу блокируем
+                upgradeBtn.interactable = false;
+                LockUiAction();
                 gm.RestoreHouseProductButton(houseId, productId);
                 SyncWithGameManager();
             });
@@ -180,18 +198,19 @@ public class HouseProductCard : MonoBehaviour
             return;
         }
 
-        // если таймер дойдёт до нуля — предлагаем «Собрать»
+        // === Если таймер закончился — можно собрать ===
         if (leftSec <= 0)
         {
             timerText.gameObject.SetActive(false);
 
-            upgradeBtn.interactable = true;
+            upgradeBtn.interactable = !uiActionLocked;
             upgradeBtn.GetComponentInChildren<Text>().text = "Собрать ресурсы";
 
             upgradeBtn.onClick.RemoveAllListeners();
             upgradeBtn.onClick.AddListener(() =>
             {
-                upgradeBtn.interactable = false; // 🔴 сразу блокируем
+                upgradeBtn.interactable = false;
+                LockUiAction();
                 gm.CollectHouseProductButton(houseId, productId);
                 SyncWithGameManager();
             });
@@ -200,12 +219,16 @@ public class HouseProductCard : MonoBehaviour
             return;
         }
 
-        // обычный режим — апгрейд
-        float upgradeCost = product.price * (lvl + 1) * 2f;
-        bool canAfford = gm.currentUser.coin >= upgradeCost;
+        // === Обычный режим — апгрейд ===
+        float upgradeCost = product.price * (lvl + 1) * 2f; // 💰 SunCoin
+        float upgradeBezosCost = product.speed_price * (1.5f + lvl * 0.5f); // ⚡ Безосы
+
+        bool canAffordCoins = gm.currentUser.coin >= upgradeCost;
+        bool canAffordBezos = gm.currentUser.bezoz >= upgradeBezosCost;
+        bool canAfford = canAffordCoins && canAffordBezos;
 
         timerText.gameObject.SetActive(true);
-        upgradeBtn.interactable = canAfford;
+        upgradeBtn.interactable = !uiActionLocked && canAfford;
 
         if (lvl >= 4)
         {
@@ -214,11 +237,14 @@ public class HouseProductCard : MonoBehaviour
         }
         else
         {
-            upgradeBtn.GetComponentInChildren<Text>().text = $"Улучшить ({upgradeCost:0} монет)";
+            upgradeBtn.GetComponentInChildren<Text>().text =
+                $"Улучшить ({upgradeCost:0} монет, {upgradeBezosCost:0} безосов)";
+
             upgradeBtn.onClick.RemoveAllListeners();
             upgradeBtn.onClick.AddListener(() =>
             {
                 upgradeBtn.interactable = false; // 🔴 сразу блокируем
+                LockUiAction();
                 gm.UpgradeProductInHouseButton(houseId, product.id);
                 SyncWithGameManager();
             });

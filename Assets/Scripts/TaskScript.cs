@@ -2,6 +2,7 @@ using System;
 using System.Collections;
 using System.Globalization;
 using UnityEngine;
+using UnityEngine.Networking;
 using UnityEngine.UI;
 
 public class TaskScript : MonoBehaviour
@@ -24,39 +25,157 @@ public class TaskScript : MonoBehaviour
     [SerializeField] private Text rewardText;
     [SerializeField] private Text taskText;
 
+    [SerializeField] private Image iconImage;
+
+    [Header("Icons by task type (optional)")]
+    [SerializeField] private bool hideIcon;
+    [SerializeField] private Sprite iconMoney;
+    [SerializeField] private Sprite iconBezoz;
+    [SerializeField] private Sprite iconLvl;
+    [SerializeField] private Sprite iconCell;
+    [SerializeField] private Sprite iconChannel;
+
     public string reward; // текст награды
     public string task;   // текст условия
 
     public enum WhatRewardMoney { MONEY, BEZOZ, LVL, TON }
-    public enum WhatTask        { MONEY, BEZOZ, LVL, CELL }
+    public enum WhatTask        { MONEY, BEZOZ, LVL, CELL, CHANNEL }
+
+    [Header("Channel (only for CHANNEL type)")]
+    public string channelUrl;  // ссылка для пользователя
+    public int backendTaskId;  // id задания на бэке (для проверки подписки)
 
     private string PlayerPrefsKey => $"task_done_{taskId}";
 
-    private void Awake()
+    private bool initialized;
+    private bool channelOpenedOnce;
+
+    private void ApplyTextsAndHandleCompleted()
     {
         if (rewardText) rewardText.text = reward;
-        if (taskText)   taskText.text   = task;
+        if (taskText) taskText.text = task;
+
+        ApplyIconByType();
 
         if (IsAlreadyCompleted())
         {
             Destroy(gameObject);
+        }
+
+    }
+
+    private void ApplyIconByType()
+    {
+        if (!iconImage) return;
+        if (hideIcon)
+        {
+            iconImage.gameObject.SetActive(false);
             return;
         }
 
-        if (IsConditionMet())
+        Sprite target = null;
+        switch (whatTask)
         {
-            // если условие уже выполнено — можно сразу забирать, но обычно ждём нажатие
-            // MarkCompleted(); Destroy(gameObject);
+            case WhatTask.MONEY: target = iconMoney; break;
+            case WhatTask.BEZOZ: target = iconBezoz; break;
+            case WhatTask.LVL: target = iconLvl; break;
+            case WhatTask.CELL: target = iconCell; break;
+            case WhatTask.CHANNEL: target = iconChannel; break;
         }
+
+        if (target)
+        {
+            iconImage.sprite = target;
+            iconImage.gameObject.SetActive(true);
+        }
+        else
+        {
+            iconImage.gameObject.SetActive(false);
+        }
+    }
+
+    /// <summary>
+    /// Инициализация из кода (TaskManager вызывает после Instantiate).
+    /// </summary>
+    public void Init(GameManager gameManager, int id, string title, string description,
+        WhatTask taskType, float check, WhatRewardMoney rewType, float rewAmount,
+        string chanUrl = null, int bTaskId = 0)
+    {
+        initialized = true;
+        gm = gameManager;
+        taskId = $"task_srv_{id}";
+        whatTask = taskType;
+        countToCheck = check;
+        whatReward = rewType;
+        rewardCount = rewAmount;
+        task = title;
+        reward = description;
+        channelUrl = chanUrl;
+        backendTaskId = bTaskId;
+
+        ApplyTextsAndHandleCompleted();
+    }
+
+    private void Start()
+    {
+        if (initialized) return;
+        ApplyTextsAndHandleCompleted();
     }
 
     /// Назначь на кнопку «Получить/Проверить».
     public void Check()
     {
         if (!gm || IsAlreadyCompleted()) { Destroy(gameObject); return; }
-        if (!IsConditionMet()) return;
 
+        // Для канала — 2 клика: 1) открыть ссылку, 2) выдать награду (без обязательной проверки)
+        if (whatTask == WhatTask.CHANNEL)
+        {
+            if (!channelOpenedOnce)
+            {
+                channelOpenedOnce = true;
+                OpenChannel();
+                return;
+            }
+
+            StartCoroutine(ClaimRewardCoroutine());
+            return;
+        }
+
+        if (!IsConditionMet()) return;
         StartCoroutine(ClaimRewardCoroutine());
+    }
+
+    /// Открыть ссылку на канал (назначить на кнопку «Перейти»)
+    public void OpenChannel()
+    {
+        if (!string.IsNullOrEmpty(channelUrl))
+            Application.OpenURL(channelUrl);
+    }
+
+    private IEnumerator CheckChannelAndClaim()
+    {
+        string url = $"{ApiConfig.BaseUrl}/tasks/check-channel/{backendTaskId}?user_id={gm.userID}";
+        using (UnityWebRequest req = UnityWebRequest.Get(url))
+        {
+            yield return req.SendWebRequest();
+
+            if (req.result != UnityWebRequest.Result.Success)
+            {
+                Debug.LogError($"[TASK] Channel check error: {req.error}");
+                yield break;
+            }
+
+            string json = req.downloadHandler.text;
+            // простой парсинг {"subscribed": true/false}
+            bool subscribed = json.Contains("true");
+            if (!subscribed)
+            {
+                Debug.Log("[TASK] Пользователь не подписан на канал");
+                yield break;
+            }
+        }
+
+        yield return ClaimRewardCoroutine();
     }
 
     private IEnumerator ClaimRewardCoroutine()
@@ -132,11 +251,12 @@ public class TaskScript : MonoBehaviour
     {
         switch (whatTask)
         {
-            case WhatTask.MONEY: return gm.money >= countToCheck;
-            case WhatTask.BEZOZ: return gm.bezoz >= countToCheck;
-            case WhatTask.LVL:   return gm.lvl   >= countToCheck;
-            case WhatTask.CELL:  return gm.currentUser != null && gm.currentUser.grid_count >= countToCheck;
-            default:             return false;
+            case WhatTask.MONEY:   return gm.money >= countToCheck;
+            case WhatTask.BEZOZ:   return gm.bezoz >= countToCheck;
+            case WhatTask.LVL:     return gm.lvl   >= countToCheck;
+            case WhatTask.CELL:    return gm.currentUser != null && gm.currentUser.grid_count >= countToCheck;
+            case WhatTask.CHANNEL: return false; // проверяется через CheckChannelAndClaim
+            default:               return false;
         }
     }
 }

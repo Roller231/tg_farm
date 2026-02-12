@@ -687,7 +687,6 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 02fb0a0ebc0c2e6428765fbbb04b70e5, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  withdrawApiBase: https://nvbnckvc.ru/api/withdraw/withdraw
   tonAddressInput: {fileID: 36784469}
   amountInput: {fileID: 128721915}
   memoInput: {fileID: 1897727427}
@@ -5182,7 +5181,6 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 05229ab50b9ae644c8a3d891d8c9e5e1, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  usersApiUrl: https://nvbnckvc.ru/api/usedcc/users
   myTelegramId: 
   countToAdd: 
   refLink: {fileID: 595478564}
@@ -11014,6 +11012,7 @@ GameObject:
   - component: {fileID: 720780649}
   - component: {fileID: 720780651}
   - component: {fileID: 720780652}
+  - component: {fileID: 720780653}
   m_Layer: 0
   m_Name: GameManager
   m_TagString: Untagged
@@ -11033,8 +11032,6 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 76824bdea00d16646b9e95733642c0dd, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  backendUsersUrl: https://nvbnckvc.ru/api/usedcc
-  backendProductsUrl: https://nvbnckvc.ru/api/products
   userID: 1
   username: 123312
   firstName: 
@@ -11125,7 +11122,6 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 2d58d75365ec8d44fa0c98ae3db54c10, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  backendUrl: https://nvbnckvc.ru/api/admin/admindata
 --- !u!114 &720780652
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -11138,7 +11134,6 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: ed6f410ce08eb32429e2750985009268, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  rewardsUrl: https://nvbnckvc.ru/api/rewards/rewards
   premiumRewards: []
   normalRewards: []
   gm: {fileID: 720780649}
@@ -11151,6 +11146,21 @@ MonoBehaviour:
   BuyBtnText: {fileID: 580847111}
   BuyBtn: {fileID: 1505434357}
   premPrice: 0
+--- !u!114 &720780653
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 720780648}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 9ee37ee00abaa5e4c90725f8cde7604c, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  gm: {fileID: 720780649}
+  taskPrefab: {fileID: 4533621466587099241, guid: 5f689040d6724bf4cb584cf25950ab17, type: 3}
+  parentContainer: {fileID: 1760590710}
 --- !u!1001 &729578000
 PrefabInstance:
   m_ObjectHideFlags: 0
@@ -23971,7 +23981,6 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: d402ea16691dec24198ed388fae43e1b, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  usersApiUrl: https://nvbnckvc.ru/api/usedcc/users
   entryPrefab: {fileID: 3060678970742220147, guid: 416a8a81da44d50479167856e0139258, type: 3}
   parentContainer: {fileID: 1852948979}
   topN: 50
@@ -30502,6 +30511,10 @@ PrefabInstance:
       propertyPath: m_Name
       value: Task_item (2)
       objectReference: {fileID: 0}
+    - target: {fileID: 4533621466587099241, guid: 5f689040d6724bf4cb584cf25950ab17, type: 3}
+      propertyPath: m_IsActive
+      value: 0
+      objectReference: {fileID: 0}
     m_RemovedComponents: []
     m_RemovedGameObjects: []
     m_AddedGameObjects: []
@@ -32234,6 +32247,10 @@ PrefabInstance:
       propertyPath: m_Name
       value: Task_item (1)
       objectReference: {fileID: 0}
+    - target: {fileID: 4533621466587099241, guid: 5f689040d6724bf4cb584cf25950ab17, type: 3}
+      propertyPath: m_IsActive
+      value: 0
+      objectReference: {fileID: 0}
     m_RemovedComponents: []
     m_RemovedGameObjects: []
     m_AddedGameObjects: []
@@ -32911,6 +32928,10 @@ PrefabInstance:
     - target: {fileID: 4533621466587099241, guid: 5f689040d6724bf4cb584cf25950ab17, type: 3}
       propertyPath: m_Name
       value: Task_item
+      objectReference: {fileID: 0}
+    - target: {fileID: 4533621466587099241, guid: 5f689040d6724bf4cb584cf25950ab17, type: 3}
+      propertyPath: m_IsActive
+      value: 0
       objectReference: {fileID: 0}
     m_RemovedComponents: []
     m_RemovedGameObjects: []

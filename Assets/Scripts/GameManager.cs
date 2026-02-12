@@ -10,9 +10,8 @@ using UTeleApp;
 
 public class GameManager : MonoBehaviour
 {
-    [Header("Backends")]
-    public string backendUsersUrl = "http://127.0.0.1:8000";
-    public string backendProductsUrl = "http://127.0.0.1:8008";
+    public string BackendUsersUrl => ApiConfig.BaseUrl;
+    private string BackendProductsUrl => ApiConfig.BaseUrl;
 
     [Header("User (runtime)")]
     public string userID = "1";
@@ -245,7 +244,7 @@ public class GameManager : MonoBehaviour
 
     public IEnumerator PatchUserField(string field, string valueAsString)
     {
-        string url = $"{backendUsersUrl}/users/{currentUser.id}";
+        string url = $"{BackendUsersUrl}/users/{currentUser.id}";
         var body = new PatchBody(field, valueAsString);
         string json = JsonUtility.ToJson(body);
         byte[] bytes = Encoding.UTF8.GetBytes(json);
@@ -429,7 +428,7 @@ public class GameManager : MonoBehaviour
     // ====== Users ======
     private IEnumerator EnsureUserExists()
     {
-        string url = $"{backendUsersUrl}/users/{userID}";
+        string url = $"{BackendUsersUrl}/users/{userID}";
         using (UnityWebRequest req = UnityWebRequest.Get(url))
         {
             yield return req.SendWebRequest();
@@ -491,7 +490,7 @@ public class GameManager : MonoBehaviour
 
     private IEnumerator CreateUser()
     {
-        string url = $"{backendUsersUrl}/users";
+        string url = $"{BackendUsersUrl}/users";
         var payload = new UserDto
         {
             id = userID, name = username, firstName = firstName,
@@ -578,7 +577,7 @@ public class GameManager : MonoBehaviour
     private IEnumerator FetchProductsByType(string type, Action<List<ProductDto>> setter)
     {
         string path = string.IsNullOrEmpty(type) ? "/products/by-type/_empty" : $"/products/by-type/{type}";
-        string url = backendProductsUrl + path;
+        string url = BackendProductsUrl + path;
 
         using (UnityWebRequest req = UnityWebRequest.Get(url))
         {
@@ -762,44 +761,60 @@ public class GameManager : MonoBehaviour
         Debug.Log($"[HOUSE] В дом {houseId} добавлен продукт {p.name}, таймер: {p.time} сек");
     }
 
-    public IEnumerator UpgradeProductInHouse(int houseId, int productId)
+public IEnumerator UpgradeProductInHouse(int houseId, int productId)
+{
+    var houses = GetHouses();
+    var h = houses.items.Find(x => x.id == houseId);
+    if (h == null || !h.active) yield break;
+
+    var timer = h.timers.Find(t => t.pid == productId);
+    if (timer == null) yield break;
+
+    if (!productById.TryGetValue(productId, out var p)) yield break;
+
+    // === Расчёт стоимости ===
+    float upgradeCost = p.price * (timer.lvl + 1) * 2f; // 💰 SunCoin
+    float upgradeBezosCost = p.speed_price * (1.5f + timer.lvl * 0.5f); // ⚡ Безосы
+
+    // === Проверка баланса ===
+    if (currentUser.coin < upgradeCost)
     {
-        var houses = GetHouses();
-        var h = houses.items.Find(x => x.id == houseId);
-        if (h == null || !h.active) yield break;
-
-        var timer = h.timers.Find(t => t.pid == productId);
-        if (timer == null) yield break;
-
-        if (!productById.TryGetValue(productId, out var p)) yield break;
-
-        float upgradeCost = p.price * (timer.lvl + 1) * 2f;
-        if (currentUser.coin < upgradeCost)
-        {
-            Debug.Log("[UPGRADE] Недостаточно монет");
-            yield break;
-        }
-
-        // списываем монеты сразу
-        currentUser.coin -= upgradeCost;
-        yield return PatchUserField("coin", currentUser.coin.ToString(CultureInfo.InvariantCulture));
-
-// проверка шанса
-        if (RollUpgradeSuccess(timer.lvl))
-        {
-            timer.lvl++;
-            SaveHouses();
-            Debug.Log($"[UPGRADE] Продукт {p.name} в доме {houseId} улучшен до {timer.lvl} уровня (шанс успешный)");
-        }
-        else
-        {
-            Debug.Log($"[UPGRADE] Продукт {p.name} в доме {houseId} — апгрейд провален");
-            StartCoroutine(ShowFailMessage("Улучшение не удалось!")); // 👈 выводим сообщение
-        }
-
-
-        ApplyUserData();
+        Debug.Log("[UPGRADE] Недостаточно монет");
+        yield break;
     }
+
+    if (currentUser.bezoz < upgradeBezosCost)
+    {
+        Debug.Log("[UPGRADE] Недостаточно безосов");
+        yield break;
+    }
+
+    // === Списание валют ===
+    currentUser.coin -= upgradeCost;
+    currentUser.bezoz -= upgradeBezosCost;
+
+    // сохраняем обе валюты в БД
+    yield return PatchUserField("coin", currentUser.coin.ToString(CultureInfo.InvariantCulture));
+    yield return PatchUserField("bezoz", currentUser.bezoz.ToString(CultureInfo.InvariantCulture));
+
+    Debug.Log($"[UPGRADE] Списано {upgradeCost:0} монет и {upgradeBezosCost:0} безосов");
+
+    // === Проверка успеха улучшения ===
+    if (RollUpgradeSuccess(timer.lvl))
+    {
+        timer.lvl++;
+        SaveHouses();
+        Debug.Log($"[UPGRADE] Продукт {p.name} в доме {houseId} улучшен до {timer.lvl} уровня (успех)");
+    }
+    else
+    {
+        Debug.Log($"[UPGRADE] Продукт {p.name} в доме {houseId} — улучшение не удалось");
+        StartCoroutine(ShowFailMessage("Улучшение не удалось!"));
+    }
+
+    ApplyUserData();
+}
+
 
     [Header("UI Messages")]
     public Text failMessageText;

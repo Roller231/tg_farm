@@ -129,7 +129,7 @@ public class PlantMenuItemScript : MonoBehaviour
         // (опционально) здесь можешь записать старт времени посадки в time_farm/другую структуру
 
         // Отправляем на сервер обновлённый seed_count
-        string url = $"{gameManager.backendUsersUrl}/users/{gameManager.currentUser.id}";
+        string url = $"{gameManager.BackendUsersUrl}/users/{gameManager.currentUser.id}";
         var bodyObj = new UserUpdateMinimal { seed_count = gameManager.currentUser.seed_count };
         string json = JsonUtility.ToJson(bodyObj);
         byte[] body = Encoding.UTF8.GetBytes(json);

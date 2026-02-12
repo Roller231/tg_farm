@@ -8,10 +8,8 @@ using UnityEngine.UI;
 
 public class TonVivodScript : MonoBehaviour
 {
- [Header("Backend")]
     [Tooltip("Базовый URL вашего withdrawBack (без завершающего /)")]
-    public string withdrawApiBase = "http://127.0.0.1:8005"; // пример: uvicorn withdrawBack:app --port 8010
-    private string Endpoint => $"{withdrawApiBase}/withdraw";
+    private string Endpoint => $"{ApiConfig.BaseUrl}/withdraw";
 
     [Header("UI References")]
     public InputField tonAddressInput;
