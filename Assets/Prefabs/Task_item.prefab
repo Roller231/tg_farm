@@ -96,7 +96,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 1
+  m_IsActive: 0
 --- !u!224 &7300005608361341368
 RectTransform:
   m_ObjectHideFlags: 0
@@ -192,7 +192,7 @@ RectTransform:
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0.5, y: 0.5}
   m_AnchorMax: {x: 0.5, y: 0.5}
-  m_AnchoredPosition: {x: -67.995, y: -17.496}
+  m_AnchoredPosition: {x: -67.995, y: 2.5940075}
   m_SizeDelta: {x: 249.08, y: 42.3618}
   m_Pivot: {x: 0.5, y: 0.5}
 --- !u!222 &1921947365833039460
@@ -271,7 +271,7 @@ RectTransform:
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0.5, y: 0.5}
   m_AnchorMax: {x: 0.5, y: 0.5}
-  m_AnchoredPosition: {x: 93.69, y: 44.91}
+  m_AnchoredPosition: {x: 93.69, y: 65}
   m_SizeDelta: {x: 572.45, y: 89.82}
   m_Pivot: {x: 0.5, y: 0.5}
 --- !u!222 &4872861572131728684
@@ -417,8 +417,17 @@ MonoBehaviour:
   rewardCount: 599
   rewardText: {fileID: 5320202006614642893}
   taskText: {fileID: 4360309911054479533}
+  iconImage: {fileID: 0}
+  hideIcon: 0
+  iconMoney: {fileID: 0}
+  iconBezoz: {fileID: 0}
+  iconLvl: {fileID: 0}
+  iconCell: {fileID: 0}
+  iconChannel: {fileID: 0}
   reward: 599
   task: "\u041D\u0430\u043A\u043E\u043F\u0438\u0442\u0435 1000 \u043C\u043E\u043D\u0435\u0442"
+  channelUrl: 
+  backendTaskId: 0
 --- !u!1 &5075410959648724564
 GameObject:
   m_ObjectHideFlags: 0
@@ -484,7 +493,7 @@ MonoBehaviour:
   m_OnCullStateChanged:
     m_PersistentCalls:
       m_Calls: []
-  m_Sprite: {fileID: 21300000, guid: 78fe645ab392488469840eb586f5f188, type: 3}
+  m_Sprite: {fileID: 21300000, guid: 6f0c629d863fd644d85aeb9f633a2614, type: 3}
   m_Type: 0
   m_PreserveAspect: 0
   m_FillCenter: 1

@@ -223,6 +223,11 @@ public class HouseProductCard : MonoBehaviour
         float upgradeCost = product.price * (lvl + 1) * 2f; // 💰 SunCoin
         float upgradeBezosCost = product.speed_price * (1.5f + lvl * 0.5f); // ⚡ Безосы
 
+        // Апгрейд на 4 уровень (3 -> 4): безосы в 10 раз дороже
+        int nextLvl = lvl + 1;
+        if (nextLvl == 4)
+            upgradeBezosCost *= 10f;
+
         bool canAffordCoins = gm.currentUser.coin >= upgradeCost;
         bool canAffordBezos = gm.currentUser.bezoz >= upgradeBezosCost;
         bool canAfford = canAffordCoins && canAffordBezos;

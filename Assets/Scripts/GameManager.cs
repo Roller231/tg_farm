@@ -782,6 +782,11 @@ public IEnumerator UpgradeProductInHouse(int houseId, int productId)
     float upgradeCost = p.price * (timer.lvl + 1) * 2f; // 💰 SunCoin
     float upgradeBezosCost = p.speed_price * (1.5f + timer.lvl * 0.5f); // ⚡ Безосы
 
+    // Апгрейд на 4 уровень (3 -> 4): безосы в 10 раз дороже (во всех домах)
+    int nextLvl = timer.lvl + 1;
+    if (nextLvl == 4)
+        upgradeBezosCost *= 10f;
+
     // === Проверка баланса ===
     if (currentUser.coin < upgradeCost)
     {

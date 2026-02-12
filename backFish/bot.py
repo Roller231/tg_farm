@@ -6,7 +6,9 @@ from aiogram.filters import CommandStart, CommandObject
 from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
 
 API_TOKEN = "8432053231:AAG7Bq4NUgguRefZLh2pBLoJL0pGKtg-HFs"
-BACKEND_URL = "https://farmbeachtg.st8.ru/api/usedcc/users"
+API_BASE_URL = "https://farmbeachtg.st8.ru/api"
+BACKEND_URL = f"{API_BASE_URL}/usedcc/users"
+ADMIN_URL = f"{API_BASE_URL}/admindata"
 
 bot = Bot(token=API_TOKEN)
 dp = Dispatcher()
@@ -39,6 +41,26 @@ async def update_user(user_id: str, data: dict):
     async with aiohttp.ClientSession() as session:
         async with session.put(f"{BACKEND_URL}/{user_id}", json=data) as resp:
             return resp.status, await resp.text()
+
+
+async def patch_user_field(user_id: str, field: str, value):
+    payload = {"field": field, "value": value}
+    async with aiohttp.ClientSession() as session:
+        async with session.patch(f"{BACKEND_URL}/{user_id}", json=payload) as resp:
+            return resp.status, await resp.text()
+
+
+async def get_admin_value(admin_id: int) -> float:
+    async with aiohttp.ClientSession() as session:
+        async with session.get(f"{ADMIN_URL}/{admin_id}") as resp:
+            if resp.status != 200:
+                return 0.0
+            data = await resp.json()
+            raw = data.get("value", "0")
+            try:
+                return float(str(raw).replace(",", "."))
+            except Exception:
+                return 0.0
 
 
 # ---------- POST create user ----------
@@ -91,21 +113,20 @@ async def reward_referrer(ref_id: str):
     try:
         print("📥 Текущий ref_user:", ref_user)
 
-        current_coin = float(ref_user.get("coin", "0"))
+        bonus_bezoz = await get_admin_value(2)
+        current_bezoz = float(ref_user.get("bezoz", "0"))
         current_refs = int(ref_user.get("ref_count", 0))
 
-        # обновляем монеты и счётчик рефералов
-        ref_user["coin"] = str(int(current_coin) + 100)
-        ref_user["ref_count"] = current_refs + 1
+        new_bezoz = current_bezoz + bonus_bezoz
+        new_ref_count = current_refs + 1
 
-        print("📤 Отправляем в backend:", ref_user)
+        status1, text1 = await patch_user_field(ref_id, "bezoz", str(new_bezoz))
+        status2, text2 = await patch_user_field(ref_id, "ref_count", new_ref_count)
 
-        status, text = await update_user(ref_id, ref_user)
-
-        if status == 200:
-            print(f"✅ Referrer {ref_id} получил +100 монет")
+        if status1 == 200 and status2 == 200:
+            print(f"✅ Referrer {ref_id} получил +{bonus_bezoz} безосов")
         else:
-            print(f"⚠️ Ошибка обновления ({status}): {text}")
+            print(f"⚠️ Ошибка обновления: bezoz=({status1}) {text1}; ref_count=({status2}) {text2}")
 
     except Exception as e:
         print("❌ Ошибка при обновлении реферала:", e)
@@ -144,7 +165,10 @@ async def start_with_ref(message: types.Message, command: CommandObject):
     if ref_id:
         await reward_referrer(ref_id)
         ref_user = await get_user(ref_id)
-        ref_name = ref_user.get("firstName", "Unknown") if ref_user else "Unknown"
+        if ref_user:
+            ref_name = (ref_user.get("firstName") or "").strip() or (ref_user.get("name") or "").strip() or ref_id
+        else:
+            ref_name = ref_id
 
         await message.answer(
             f"🎉 Привет, {message.from_user.first_name}! 🎉\n\n"
