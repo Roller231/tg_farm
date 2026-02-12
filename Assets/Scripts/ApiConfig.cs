@@ -6,5 +6,5 @@ using UnityEngine;
 /// </summary>
 public static class ApiConfig
 {
-    public static string BaseUrl = "http://127.0.0.1:8000";
+    public static string BaseUrl = "https://farmbeachtg.st8.ru/api";
 }
