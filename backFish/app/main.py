@@ -15,6 +15,9 @@ app = FastAPI(
     title="Farm Game API",
     description="Unified backend for Farm Game — admin, users, products, rewards, withdrawals.",
     version="2.0.0",
+    docs_url="/api/docs",
+    redoc_url=None,
+    openapi_url="/api/openapi.json",
 )
 
 app.add_middleware(
@@ -26,12 +29,12 @@ app.add_middleware(
 )
 
 # -------------------- Routers --------------------
-app.include_router(admin.router)
-app.include_router(users.router)
-app.include_router(products.router)
-app.include_router(level_rewards.router)
-app.include_router(withdraw.router)
-app.include_router(tasks.router)
+app.include_router(admin.router, prefix="/api")
+app.include_router(users.router, prefix="/api")
+app.include_router(products.router, prefix="/api")
+app.include_router(level_rewards.router, prefix="/api")
+app.include_router(withdraw.router, prefix="/api")
+app.include_router(tasks.router, prefix="/api")
 
 
 @app.get("/", tags=["Health"])
