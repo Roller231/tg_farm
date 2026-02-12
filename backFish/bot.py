@@ -7,7 +7,7 @@ from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
 
 API_TOKEN = "8432053231:AAG7Bq4NUgguRefZLh2pBLoJL0pGKtg-HFs"
 API_BASE_URL = "https://farmbeachtg.st8.ru/api"
-BACKEND_URL = f"{API_BASE_URL}/usedcc/users"
+BACKEND_URL = f"{API_BASE_URL}/users"
 ADMIN_URL = f"{API_BASE_URL}/admindata"
 
 bot = Bot(token=API_TOKEN)
