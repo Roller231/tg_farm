@@ -30,6 +30,8 @@ public class FarmCell : MonoBehaviour, IPointerClickHandler
     private GameManager gm;
     private Coroutine timerCo;
 
+    private bool isBuyingGrid;
+
     public void Init(GameManager manager)
     {
         gm = manager;
@@ -265,21 +267,31 @@ public class FarmCell : MonoBehaviour, IPointerClickHandler
 
     public IEnumerator BuyGrid()
     {
+        if (isBuyingGrid) yield break;
+        isBuyingGrid = true;
+
         if (gm.money >= priceGrid && gm.lvl >= needLvl)
         {
-            gm.money -= priceGrid;
+            var btn = GetComponent<Button>();
+            if (btn != null) btn.interactable = false;
 
-            GetComponent<Button>().interactable = true;
+            gm.money -= priceGrid;
+            gm.currentUser.coin = gm.money;
+
             imageBuyBtn.SetActive(false);
             isLocked = false;
             gm.currentUser.grid_count++;
             Debug.Log(gm.currentUser.grid_count);
 
-            gm.moneyText.text = gm.money.ToString();
+            gm.ApplyUserData();
 
             yield return gm.PatchUserField("grid_count", gm.currentUser.grid_count.ToString(CultureInfo.InvariantCulture));
             yield return gm.PatchUserField("coin", gm.money.ToString(CultureInfo.InvariantCulture));
+
+            if (btn != null) btn.interactable = true;
         }
+
+        isBuyingGrid = false;
     }
 
     private static long UnixNow() =>

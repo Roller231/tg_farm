@@ -382,6 +382,12 @@ public class GameManager : MonoBehaviour
         if (prod != null)
         {
             SelectedCell.Plant(prod);
+
+            // Сразу сохраняем новое состояние грядок на сервер (не ждём heartbeat)
+            string stateJson = BuildGridStateJson();
+            currentUser.grid_state = stateJson;
+            yield return PatchUserField("grid_state", stateJson);
+
             if (plantMenuUI) plantMenuUI.SetActive(false);
         }
     }
