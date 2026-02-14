@@ -1231,7 +1231,7 @@ public IEnumerator UpgradeProductInHouse(int houseId, int productId)
 
         if (currentLvl == 1) return roll < 50;  // 50%
         if (currentLvl == 2) return roll < 25;  // 25%
-        if (currentLvl == 3) return roll < 10;  // 10%
+        if (currentLvl == 3) return roll < 3;  // 3%
         return false;
     }
 
