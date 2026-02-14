@@ -14,6 +14,16 @@ public class PlantMenuScript : MonoBehaviour
     {
         PopulatePlantMenu();
     }
+    public void SetAllButtonsInteractable(bool state)
+    {
+        foreach (var go in spawnedItems)
+        {
+            var item = go.GetComponent<PlantMenuItemScript>();
+            if (item != null)
+                item.SetButtonState(state);
+        }
+    }
+
 
     public void PopulatePlantMenu()
     {

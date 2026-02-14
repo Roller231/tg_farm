@@ -105,6 +105,10 @@ async def create_user(user: types.User, ref_id: str | None):
 
 # ---------- REFERRAL reward ----------
 async def reward_referrer(ref_id: str):
+    ref_id = (ref_id or "").strip()
+    if not ref_id:
+        return
+
     ref_user = await get_user(ref_id)
     if not ref_user:
         print(f"❌ Referrer {ref_id} not found")
@@ -125,8 +129,23 @@ async def reward_referrer(ref_id: str):
 
         if status1 == 200 and status2 == 200:
             print(f"✅ Referrer {ref_id} получил +{bonus_bezoz} безосов")
+            return
+
+        print(f"⚠️ PATCH не сработал: bezoz=({status1}) {text1}; ref_count=({status2}) {text2}")
+        print("↪️ Пробуем fallback через PUT (UserUpdate)")
+
+        status, text = await update_user(
+            ref_id,
+            {
+                "bezoz": str(new_bezoz),
+                "ref_count": new_ref_count,
+            },
+        )
+
+        if status == 200:
+            print(f"✅ Referrer {ref_id} получил +{bonus_bezoz} безосов (через PUT)")
         else:
-            print(f"⚠️ Ошибка обновления: bezoz=({status1}) {text1}; ref_count=({status2}) {text2}")
+            print(f"⚠️ PUT тоже не сработал ({status}): {text}")
 
     except Exception as e:
         print("❌ Ошибка при обновлении реферала:", e)

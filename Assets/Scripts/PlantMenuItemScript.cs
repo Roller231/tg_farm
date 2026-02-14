@@ -21,7 +21,7 @@ public class PlantMenuItemScript : MonoBehaviour
 
     private GameManager gameManager;
     private ProductDto product;
-
+    private bool isPlanting;
     [System.Serializable]
     public class ProductDto
     {
@@ -94,17 +94,46 @@ public class PlantMenuItemScript : MonoBehaviour
             }
         }
     }
+    public void SetButtonState(bool state)
+    {
+        if (plantButton != null)
+            plantButton.interactable = state;
+    }
 
     public GameObject menuRoot; // корневой объект окна посадки
 
     private void OnPlantClicked()
     {
         if (gameManager == null || product == null) return;
-        // посадить в выбранную клетку
-        gameManager.StartCoroutine(gameManager.PlantInSelectedCell(product.id));
-        // закрыть меню
-        if (menuRoot) menuRoot.SetActive(false);
+        if (isPlanting) return;
+
+        var menu = GetComponentInParent<PlantMenuScript>();
+        if (menu != null)
+            menu.SetAllButtonsInteractable(false); // 🔒 блокируем всё
+
+        StartCoroutine(PlantWithDelay(menu));
     }
+
+
+    private IEnumerator PlantWithDelay(PlantMenuScript menu)
+    {
+        isPlanting = true;
+
+        yield return gameManager.StartCoroutine(
+            gameManager.PlantInSelectedCell(product.id)
+        );
+
+        yield return new WaitForSeconds(3.5f);
+
+        isPlanting = false;
+
+        if (menu != null)
+            menu.SetAllButtonsInteractable(true); // 🔓 разблокируем всё
+
+        if (menuRoot)
+            menuRoot.SetActive(false);
+    }
+
 
 
     /// <summary>

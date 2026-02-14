@@ -77,16 +77,24 @@ public class HouseProductCard : MonoBehaviour
     private void LockUiAction()
     {
         uiActionLocked = true;
-        if (unlockCo != null) StopCoroutine(unlockCo);
+
+        if (upgradeBtn != null)
+            upgradeBtn.interactable = false;
+
+        if (unlockCo != null)
+            StopCoroutine(unlockCo);
+
         unlockCo = StartCoroutine(UnlockUiActionAfterDelay());
     }
 
     private IEnumerator UnlockUiActionAfterDelay()
     {
-        yield return new WaitForSeconds(1.0f);
+        yield return new WaitForSeconds(3.5f); // 🔴 3.5 секунды
+
         uiActionLocked = false;
         unlockCo = null;
-        RefreshUI();
+
+        RefreshUI(); // вернет кнопку в корректное состояние
     }
 
     private void Update()

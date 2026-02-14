@@ -26,6 +26,7 @@ public class FarmCell : MonoBehaviour, IPointerClickHandler
 
     public int priceGrid;
     public int needLvl;
+    private bool isHarvesting;
 
     private GameManager gm;
     private Coroutine timerCo;
@@ -208,9 +209,17 @@ public class FarmCell : MonoBehaviour, IPointerClickHandler
 
     private IEnumerator Harvest()
     {
+        if (isHarvesting) yield break;
+        isHarvesting = true;
+
         yield return gm.AddToStorage(productId, 1);
+
         ClearToIdle();
+
+        yield return new WaitForSeconds(2.5f); // анти-спам
+        isHarvesting = false;
     }
+
 
     public void ClearToIdle()
     {
