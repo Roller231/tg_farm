@@ -884,15 +884,30 @@ public IEnumerator UpgradeProductInHouse(int houseId, int productId)
         if (!(h.type == "home1" || h.type == "home2" || h.type == "home3"))
             yield break;
 
-        float restoreCost = Mathf.Max(1f, p.price / 100f);
-        if (currentUser.coin < restoreCost)
+        if (timer.lvl == 4)
         {
-            Debug.Log("[RESTORE] Недостаточно монет");
-            yield break;
-        }
+            float restoreBezozCost = 50f;
+            if (currentUser.bezoz < restoreBezozCost)
+            {
+                Debug.Log("[RESTORE] Недостаточно безосов");
+                yield break;
+            }
 
-        currentUser.coin -= restoreCost;
-        yield return PatchUserField("coin", currentUser.coin.ToString(CultureInfo.InvariantCulture));
+            currentUser.bezoz -= restoreBezozCost;
+            yield return PatchUserField("bezoz", currentUser.bezoz.ToString(CultureInfo.InvariantCulture));
+        }
+        else
+        {
+            float restoreCost = Mathf.Max(1f, p.price / 100f);
+            if (currentUser.coin < restoreCost)
+            {
+                Debug.Log("[RESTORE] Недостаточно монет");
+                yield break;
+            }
+
+            currentUser.coin -= restoreCost;
+            yield return PatchUserField("coin", currentUser.coin.ToString(CultureInfo.InvariantCulture));
+        }
 
         // снимаем needEat, ставим полный цикл
         timer.needEat = "false";
@@ -900,7 +915,7 @@ public IEnumerator UpgradeProductInHouse(int houseId, int productId)
 
         SaveHouses();
         ApplyUserData();
-        Debug.Log($"[RESTORE] Дом {houseId}, продукт {p.name}: -{restoreCost} coin, цикл запущен снова");
+        Debug.Log($"[RESTORE] Дом {houseId}, продукт {p.name}: restore ok, цикл запущен снова");
     }
 
     // внутренняя выдача награды (без автоперезапуска цикла)

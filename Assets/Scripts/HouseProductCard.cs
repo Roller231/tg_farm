@@ -189,9 +189,18 @@ public class HouseProductCard : MonoBehaviour
         {
             timerText.gameObject.SetActive(false);
 
-            float restoreCost = Mathf.Max(1f, product.price / 100f);
-            upgradeBtn.interactable = !uiActionLocked && (gm.currentUser.coin >= restoreCost);
-            upgradeBtn.GetComponentInChildren<Text>().text = $"Восстановить ({restoreCost:0})";
+            if (lvl == 4)
+            {
+                float restoreBezozCost = 50f;
+                upgradeBtn.interactable = !uiActionLocked && (gm.currentUser.bezoz >= restoreBezozCost);
+                upgradeBtn.GetComponentInChildren<Text>().text = $"Восстановить ({restoreBezozCost:0} безосов)";
+            }
+            else
+            {
+                float restoreCost = Mathf.Max(1f, product.price / 100f);
+                upgradeBtn.interactable = !uiActionLocked && (gm.currentUser.coin >= restoreCost);
+                upgradeBtn.GetComponentInChildren<Text>().text = $"Восстановить ({restoreCost:0})";
+            }
 
             upgradeBtn.onClick.RemoveAllListeners();
             upgradeBtn.onClick.AddListener(() =>
