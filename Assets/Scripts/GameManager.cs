@@ -40,6 +40,7 @@ public class GameManager : MonoBehaviour
     public List<FarmCell> cells = new();
 
     private Coroutine heartbeatCo;
+    private bool initialSyncReady;
 
     public GridController GridController;
 
@@ -242,6 +243,17 @@ public class GameManager : MonoBehaviour
     [Serializable]
     private class PatchBody { public string field; public string value; public PatchBody(string f, string v) { field = f; value = v; } }
 
+    [Serializable]
+    private class TransactionBody
+    {
+        public string tgid;
+        public string username;
+        public string action;
+        public float amount;
+        public string currency;
+        public string details;
+    }
+
     public IEnumerator PatchUserField(string field, string valueAsString)
     {
         string url = $"{BackendUsersUrl}/users/{currentUser.id}";
@@ -249,15 +261,63 @@ public class GameManager : MonoBehaviour
         string json = JsonUtility.ToJson(body);
         byte[] bytes = Encoding.UTF8.GetBytes(json);
 
-        using (var req = new UnityWebRequest(url, "PATCH"))
+        const int maxAttempts = 3;
+        for (int attempt = 1; attempt <= maxAttempts; attempt++)
         {
-            req.uploadHandler = new UploadHandlerRaw(bytes);
-            req.downloadHandler = new DownloadHandlerBuffer();
-            req.SetRequestHeader("Content-Type", "application/json");
-            yield return req.SendWebRequest();
+            using (var req = new UnityWebRequest(url, "PATCH"))
+            {
+                req.uploadHandler = new UploadHandlerRaw(bytes);
+                req.downloadHandler = new DownloadHandlerBuffer();
+                req.SetRequestHeader("Content-Type", "application/json");
+                yield return req.SendWebRequest();
 
-            if (req.result != UnityWebRequest.Result.Success)
-                Debug.LogError($"[PATCH] {field} error: {req.responseCode} {req.error}");
+                if (req.result == UnityWebRequest.Result.Success)
+                    yield break;
+
+                Debug.LogError($"[PATCH] {field} attempt {attempt}/{maxAttempts} error: {req.responseCode} {req.error}");
+            }
+
+            if (attempt < maxAttempts)
+                yield return new WaitForSeconds(0.3f);
+        }
+    }
+
+    public IEnumerator LogTransaction(string action, float amount, string currency, string details)
+    {
+        if (currentUser == null || string.IsNullOrEmpty(currentUser.id)) yield break;
+
+        string url = $"{BackendUsersUrl}/transactions";
+        var body = new TransactionBody
+        {
+            tgid = currentUser.id,
+            username = string.IsNullOrEmpty(currentUser.firstName) ? currentUser.name : currentUser.firstName,
+            action = action,
+            amount = amount,
+            currency = currency,
+            details = details,
+        };
+
+        string json = JsonUtility.ToJson(body);
+        byte[] bytes = Encoding.UTF8.GetBytes(json);
+
+        const int maxAttempts = 2;
+        for (int attempt = 1; attempt <= maxAttempts; attempt++)
+        {
+            using (var req = new UnityWebRequest(url, "POST"))
+            {
+                req.uploadHandler = new UploadHandlerRaw(bytes);
+                req.downloadHandler = new DownloadHandlerBuffer();
+                req.SetRequestHeader("Content-Type", "application/json");
+                yield return req.SendWebRequest();
+
+                if (req.result == UnityWebRequest.Result.Success)
+                    yield break;
+
+                Debug.LogError($"[TX] {action} attempt {attempt}/{maxAttempts} error: {req.responseCode} {req.error}");
+            }
+
+            if (attempt < maxAttempts)
+                yield return new WaitForSeconds(0.3f);
         }
     }
 
@@ -269,7 +329,7 @@ public class GameManager : MonoBehaviour
         while (true)
         {
             yield return new WaitForSeconds(2f);
-            if (currentUser == null) continue;
+            if (currentUser == null || !initialSyncReady) continue;
 
             long now = UnixNow();
             yield return PatchUserField("time_farm", now.ToString());
@@ -287,6 +347,15 @@ public class GameManager : MonoBehaviour
                 yield return PatchUserField("houses", housesJson);
             }
         }
+    }
+
+    public IEnumerator PersistGridStateNow()
+    {
+        if (currentUser == null) yield break;
+
+        string stateJson = BuildGridStateJson();
+        currentUser.grid_state = stateJson;
+        yield return PatchUserField("grid_state", stateJson);
     }
 
     // ====== GRID ======
@@ -384,9 +453,14 @@ public class GameManager : MonoBehaviour
             SelectedCell.Plant(prod);
 
             // Сразу сохраняем новое состояние грядок на сервер (не ждём heartbeat)
-            string stateJson = BuildGridStateJson();
-            currentUser.grid_state = stateJson;
-            yield return PatchUserField("grid_state", stateJson);
+            yield return PersistGridStateNow();
+
+            yield return LogTransaction(
+                "plant",
+                1f,
+                "seed",
+                $"product_id={productId}"
+            );
 
             if (plantMenuUI) plantMenuUI.SetActive(false);
         }
@@ -421,6 +495,12 @@ public class GameManager : MonoBehaviour
         currentUser.storage_count = ToJson(storage);
 
         yield return PatchUserField("storage_count", currentUser.storage_count);
+        yield return LogTransaction(
+            "storage_add",
+            delta,
+            "item",
+            $"product_id={productId}"
+        );
     }
 
     private float LookupExp(int productId)
@@ -480,6 +560,7 @@ public class GameManager : MonoBehaviour
                 yield return StartCoroutine(ApplyOfflineProgressHouses());
 
                 RestoreGridFromServer();
+                initialSyncReady = true;
 
                 if (waitPanel) waitPanel.SetActive(false);
             }
@@ -547,6 +628,8 @@ public class GameManager : MonoBehaviour
 
                     foreach (var voyage in FindObjectsOfType<VoyageUIController>())
                         voyage.InitAfterUserLoaded();
+
+                    initialSyncReady = true;
                 }
                 else
                 {
@@ -726,6 +809,13 @@ public class GameManager : MonoBehaviour
         currentUser.coin -= h.price;
         h.active = true;
 
+        yield return LogTransaction(
+            "house_buy",
+            h.price,
+            "coin",
+            $"house_id={houseId}"
+        );
+
         SaveHouses();
         ApplyUserData();
     }
@@ -760,6 +850,13 @@ public class GameManager : MonoBehaviour
         }
 
         h.timers.Add(new HouseTimer { pid = productId, left = p.time, lvl = 1, needEat = "false" });
+
+        yield return LogTransaction(
+            "house_add_product",
+            0f,
+            "none",
+            $"house_id={houseId};product_id={productId}"
+        );
 
         _housesCache = houses;
         SaveHouses();
@@ -807,6 +904,19 @@ public IEnumerator UpgradeProductInHouse(int houseId, int productId)
     // сохраняем обе валюты в БД
     yield return PatchUserField("coin", currentUser.coin.ToString(CultureInfo.InvariantCulture));
     yield return PatchUserField("bezoz", currentUser.bezoz.ToString(CultureInfo.InvariantCulture));
+
+    yield return LogTransaction(
+        "house_upgrade",
+        upgradeCost,
+        "coin",
+        $"house_id={houseId};product_id={productId};from_lvl={timer.lvl};to_lvl={nextLvl}"
+    );
+    yield return LogTransaction(
+        "house_upgrade",
+        upgradeBezosCost,
+        "bezoz",
+        $"house_id={houseId};product_id={productId};from_lvl={timer.lvl};to_lvl={nextLvl}"
+    );
 
     Debug.Log($"[UPGRADE] Списано {upgradeCost:0} монет и {upgradeBezosCost:0} безосов");
 
@@ -895,6 +1005,12 @@ public IEnumerator UpgradeProductInHouse(int houseId, int productId)
 
             currentUser.bezoz -= restoreBezozCost;
             yield return PatchUserField("bezoz", currentUser.bezoz.ToString(CultureInfo.InvariantCulture));
+            yield return LogTransaction(
+                "house_restore",
+                restoreBezozCost,
+                "bezoz",
+                $"house_id={houseId};product_id={productId};lvl={timer.lvl}"
+            );
         }
         else
         {
@@ -907,6 +1023,12 @@ public IEnumerator UpgradeProductInHouse(int houseId, int productId)
 
             currentUser.coin -= restoreCost;
             yield return PatchUserField("coin", currentUser.coin.ToString(CultureInfo.InvariantCulture));
+            yield return LogTransaction(
+                "house_restore",
+                restoreCost,
+                "coin",
+                $"house_id={houseId};product_id={productId};lvl={timer.lvl}"
+            );
         }
 
         // снимаем needEat, ставим полный цикл
@@ -928,6 +1050,12 @@ public IEnumerator UpgradeProductInHouse(int houseId, int productId)
             float rewardCoin = p.sell_price * 1.5f * timer.lvl;
             currentUser.coin += rewardCoin;
             yield return PatchUserField("coin", currentUser.coin.ToString(CultureInfo.InvariantCulture));
+            yield return LogTransaction(
+                "house_payout",
+                rewardCoin,
+                "coin",
+                $"house_id={houseId};product_id={timer.pid};lvl={timer.lvl}"
+            );
             Debug.Log($"[PAYOUT] Дом {houseId}, продукт {p.name}, lvl {timer.lvl}: +{rewardCoin} монет");
         }
         else
@@ -935,6 +1063,12 @@ public IEnumerator UpgradeProductInHouse(int houseId, int productId)
             float rewardTon = p.sell_price / 100f;
             currentUser.ton += rewardTon;
             yield return PatchUserField("ton", currentUser.ton.ToString(CultureInfo.InvariantCulture));
+            yield return LogTransaction(
+                "house_payout",
+                rewardTon,
+                "ton",
+                $"house_id={houseId};product_id={timer.pid};lvl={timer.lvl}"
+            );
             Debug.Log($"[PAYOUT] Дом {houseId}, продукт {p.name}, lvl {timer.lvl}: +{rewardTon} TON");
         }
     }

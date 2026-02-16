@@ -215,6 +215,7 @@ public class FarmCell : MonoBehaviour, IPointerClickHandler
         yield return gm.AddToStorage(productId, 1);
 
         ClearToIdle();
+        yield return gm.PersistGridStateNow();
 
         yield return new WaitForSeconds(2.5f); // анти-спам
         isHarvesting = false;
@@ -296,6 +297,12 @@ public class FarmCell : MonoBehaviour, IPointerClickHandler
 
             yield return gm.PatchUserField("grid_count", gm.currentUser.grid_count.ToString(CultureInfo.InvariantCulture));
             yield return gm.PatchUserField("coin", gm.money.ToString(CultureInfo.InvariantCulture));
+            yield return gm.LogTransaction(
+                "grid_buy",
+                priceGrid,
+                "coin",
+                $"need_lvl={needLvl};grid_count={gm.currentUser.grid_count}"
+            );
 
             if (btn != null) btn.interactable = true;
         }

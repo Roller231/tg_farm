@@ -6,7 +6,7 @@ from app.database import Base, engine
 # Import all models so Base.metadata knows about every table
 import app.models  # noqa: F401
 
-from app.routers import admin, level_rewards, products, tasks, users, withdraw
+from app.routers import admin, level_rewards, products, tasks, transactions, users, withdraw
 
 # Create tables that don't yet exist (won't alter existing ones)
 Base.metadata.create_all(bind=engine)
@@ -35,6 +35,7 @@ app.include_router(products.router, prefix="/api")
 app.include_router(level_rewards.router, prefix="/api")
 app.include_router(withdraw.router, prefix="/api")
 app.include_router(tasks.router, prefix="/api")
+app.include_router(transactions.router, prefix="/api")
 
 
 @app.get("/", tags=["Health"])
