@@ -269,115 +269,68 @@ public class RewardsManager : MonoBehaviour
 
     public void GiveReward(int lvl)
     {
-        if (gm.currentUser.isPremium == 1)
+        gm.StartCoroutine(GiveRewardCoroutine(lvl));
+    }
+
+    private IEnumerator GiveRewardCoroutine(int lvl)
+    {
+        bool isPremium = gm.currentUser.isPremium == 1;
+        int idx = lvl - 1;
+
+        if (idx >= 0 && idx < normalRewards.Count)
         {
-            //index >= 0 && index < myArray.Length
-            if (lvl-1 >= 0 && lvl-1 < normalRewards.Count)
-            {
-                if (normalRewards[lvl - 1].type == "coin")
-                {
-                    gm.currentUser.coin += normalRewards[lvl - 1].amount;
-                    gm.StartCoroutine(gm.PatchUserField("coin", gm.currentUser.coin.ToString()));
-
-                }
-                else if (normalRewards[lvl - 1].type == "bezoz")
-                {
-                    gm.currentUser.bezoz += normalRewards[lvl - 1].amount;
-                    gm.StartCoroutine(gm.PatchUserField("bezoz", gm.currentUser.bezoz.ToString()));
-
-                }
-                else if (normalRewards[lvl - 1].type == "ton")
-                {
-                    gm.currentUser.ton +=  normalRewards[lvl - 1].amount;
-                    gm.StartCoroutine(gm.PatchUserField("ton", gm.currentUser.ton.ToString()));
-                }
-            }
-
-            if (lvl-1 >= 0 && lvl-1 < premiumRewards.Count)
-            {
-                if (premiumRewards[lvl - 1].type == "coin")
-                {
-                    gm.currentUser.coin += premiumRewards[lvl - 1].amount;
-                    gm.StartCoroutine(gm.PatchUserField("coin", gm.currentUser.coin.ToString()));
-
-                }
-                else if (premiumRewards[lvl - 1].type == "bezoz")
-                {
-                    gm.currentUser.bezoz += premiumRewards[lvl - 1].amount;
-                    gm.StartCoroutine(gm.PatchUserField("bezoz", gm.currentUser.bezoz.ToString()));
-
-                }
-                else if (premiumRewards[lvl - 1].type == "ton")
-                {
-                    gm.currentUser.ton += premiumRewards[lvl - 1].amount;
-                    gm.StartCoroutine(gm.PatchUserField("ton", gm.currentUser.ton.ToString()));
-                }
-            }
+            var r = normalRewards[idx];
+            ApplyRewardLocally(r);
+            yield return gm.PatchUserField(r.type, GetFieldValue(r.type));
         }
-        else
+
+        if (isPremium && idx >= 0 && idx < premiumRewards.Count)
         {
-            if (lvl-1 >= 0 && lvl-1 < premiumRewards.Count)
-            {
-                if (normalRewards[lvl - 1].type == "coin")
-                {
-                    gm.currentUser.coin += normalRewards[lvl - 1].amount;
-                    gm.StartCoroutine(gm.PatchUserField("coin", gm.currentUser.coin.ToString()));
-
-                }
-                else if (normalRewards[lvl - 1].type == "bezoz")
-                {
-                    gm.currentUser.bezoz += normalRewards[lvl - 1].amount;
-                    gm.StartCoroutine(gm.PatchUserField("bezoz", gm.currentUser.bezoz.ToString()));
-
-                }
-                else if (normalRewards[lvl - 1].type == "ton")
-                {
-                    gm.currentUser.ton += normalRewards[lvl - 1].amount;
-                    gm.StartCoroutine(gm.PatchUserField("ton", gm.currentUser.ton.ToString()));
-                }
-            }
+            var r = premiumRewards[idx];
+            ApplyRewardLocally(r);
+            yield return gm.PatchUserField(r.type, GetFieldValue(r.type));
         }
-        
+
         gm.ApplyUserData();
         UpdateUI();
     }
     
-     public void GiveRewardPremium(int lvl)
+    public void GiveRewardPremium(int lvl)
     {
-       
-            
+        gm.StartCoroutine(GiveRewardPremiumCoroutine(lvl));
+    }
 
+    private IEnumerator GiveRewardPremiumCoroutine(int lvl)
+    {
+        int idx = lvl - 1;
+        if (idx >= 0 && idx < premiumRewards.Count)
+        {
+            Debug.Log("BUY PREM" + lvl);
+            var r = premiumRewards[idx];
+            ApplyRewardLocally(r);
+            yield return gm.PatchUserField(r.type, GetFieldValue(r.type));
+        }
 
-            if (lvl-1 >= 0 && lvl-1 < premiumRewards.Count)
-            {
-                Debug.Log("BUY PREM" + lvl);
-                if (premiumRewards[lvl - 1].type == "coin")
-                {
-                    gm.currentUser.coin += premiumRewards[lvl - 1].amount;
-                    gm.StartCoroutine(gm.PatchUserField("coin", gm.currentUser.coin.ToString()));
-
-                }
-                else if (premiumRewards[lvl - 1].type == "bezoz")
-                {
-                    gm.currentUser.bezoz += premiumRewards[lvl - 1].amount;
-                    gm.StartCoroutine(gm.PatchUserField("bezoz", gm.currentUser.bezoz.ToString()));
-
-                }
-                else if (premiumRewards[lvl - 1].type == "ton")
-                {
-                    gm.currentUser.ton += premiumRewards[lvl - 1].amount;
-                    gm.StartCoroutine(gm.PatchUserField("ton", gm.currentUser.ton.ToString()));
-                }
-            }
-        
-      
-        
-        
         gm.ApplyUserData();
         UpdateUI();
     }
 
 
+
+    private void ApplyRewardLocally(Reward r)
+    {
+        if (r.type == "coin")  gm.currentUser.coin  += r.amount;
+        else if (r.type == "bezoz") gm.currentUser.bezoz += r.amount;
+        else if (r.type == "ton")   gm.currentUser.ton   += r.amount;
+    }
+
+    private string GetFieldValue(string type)
+    {
+        if (type == "coin")  return gm.currentUser.coin.ToString(System.Globalization.CultureInfo.InvariantCulture);
+        if (type == "bezoz") return gm.currentUser.bezoz.ToString(System.Globalization.CultureInfo.InvariantCulture);
+        if (type == "ton")   return gm.currentUser.ton.ToString(System.Globalization.CultureInfo.InvariantCulture);
+        return "0";
+    }
 
     public void BuyPremium()
     {
@@ -385,12 +338,18 @@ public class RewardsManager : MonoBehaviour
 
         gm.currentUser.ton -= premPrice;
         gm.currentUser.isPremium = 1;
+        UpdateUI();
         
-        gm.StartCoroutine(gm.PatchUserField("ton", gm.currentUser.ton.ToString()));
+        gm.StartCoroutine(gm.PatchUserField("ton", gm.currentUser.ton.ToString(System.Globalization.CultureInfo.InvariantCulture)));
         gm.StartCoroutine(gm.PatchUserField("isPremium", gm.currentUser.isPremium.ToString()));
+        gm.StartCoroutine(BuyPremiumRewardsSequential());
+    }
+
+    private IEnumerator BuyPremiumRewardsSequential()
+    {
         for (int i = 1; i <= gm.currentUser.lvl; i++)
         {
-            GiveRewardPremium(i);
+            yield return GiveRewardPremiumCoroutine(i);
         }
     }
 

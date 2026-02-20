@@ -15,15 +15,21 @@ public class GridController : MonoBehaviour
     public void OpenBuyMenu(int GridId)
     {
         menuBuy.SetActive(true);
-        priceText.text = gameManager.cells[GridId].priceGrid.ToString();
-        if (gameManager.money < gameManager.cells[GridId].priceGrid)
+
+        bool isNextInOrder = GridId == gameManager.currentUser.grid_count;
+
+        if (!isNextInOrder)
         {
+            priceText.text = "Сначала купите предыдущую клетку";
             priceText.color = Color.red;
+            buyBtn.onClick.RemoveAllListeners();
+            buyBtn.interactable = false;
+            return;
         }
-        else if (gameManager.money >= gameManager.cells[GridId].priceGrid)
-        {
-            priceText.color = Color.white;
-        }
+
+        buyBtn.interactable = true;
+        priceText.text = gameManager.cells[GridId].priceGrid.ToString();
+        priceText.color = gameManager.money >= gameManager.cells[GridId].priceGrid ? Color.white : Color.red;
 
         if (gameManager.lvl < gameManager.cells[GridId].needLvl)
         {
@@ -31,16 +37,12 @@ public class GridController : MonoBehaviour
             priceText.color = Color.red;
         }
 
-        
-        // Сначала очищаем кнопку
         buyBtn.onClick.RemoveAllListeners();
-        
         buyBtn.onClick.AddListener(() =>
         {
             gameManager.cells[GridId].BuyGridFunc();
             menuBuy.SetActive(false);
         });
-
     }
 
     public void StartGrid()

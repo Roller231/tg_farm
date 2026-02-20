@@ -280,7 +280,10 @@ public class FarmCell : MonoBehaviour, IPointerClickHandler
         if (isBuyingGrid) yield break;
         isBuyingGrid = true;
 
-        if (gm.money >= priceGrid && gm.lvl >= needLvl)
+        int myIndex = gm.cells.IndexOf(this);
+        bool isNextInOrder = myIndex == gm.currentUser.grid_count;
+
+        if (gm.money >= priceGrid && gm.lvl >= needLvl && isNextInOrder)
         {
             var btn = GetComponent<Button>();
             if (btn != null) btn.interactable = false;
