@@ -258,15 +258,15 @@ public class RewardsManager : MonoBehaviour
                 PremiumStatusText.text = "";
         }
 
-        if (gm.currentUser.ton < premPrice )
-        {
-            BuyBtn.interactable = false;
-            BuyBtnText.text = $"Нужно {premPrice} TON";
-        }
-        else if (gm.currentUser.isPremium == 1)
+        if (gm.currentUser.isPremium == 1)
         {
             BuyBtn.interactable = false;
             BuyBtnText.text = $"Премиум куплен";
+        }
+        else if (gm.currentUser.ton < premPrice)
+        {
+            BuyBtn.interactable = false;
+            BuyBtnText.text = $"Нужно {premPrice} TON";
         }
         else
         {
