@@ -39,6 +39,7 @@ public class RewardsManager : MonoBehaviour
     public GameObject prefab;
     public Text BuyBtnText;
     public Button BuyBtn;
+    public Text PremiumStatusText;
     public float premPrice;
 
     public void Onbgtt()
@@ -248,6 +249,14 @@ public class RewardsManager : MonoBehaviour
         
         
 
+
+        if (PremiumStatusText != null)
+        {
+            if (gm.currentUser.isPremium == 1)
+                PremiumStatusText.text = "У Вас премиум";
+            else
+                PremiumStatusText.text = "";
+        }
 
         if (gm.currentUser.ton < premPrice )
         {

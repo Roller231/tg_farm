@@ -24,6 +24,8 @@ class User(Base):
 
     isPremium: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
 
+    blocked: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+
     time_farm: Mapped[str] = mapped_column(Text, nullable=False, default="")
     seed_count: Mapped[str] = mapped_column(Text, nullable=False, default="")
     storage_count: Mapped[str] = mapped_column(Text, nullable=False, default="")

@@ -34,6 +34,9 @@ public class GameManager : MonoBehaviour
     [SerializeField] private GameObject waitPanel;
     [SerializeField] private Image lvlProgressBar;
 
+    [Header("Blocked UI")]
+    [SerializeField] private GameObject farmSealedPanel;
+
     [Header("Planting UI")]
     public GameObject plantMenuUI;
     public FarmCell SelectedCell;
@@ -76,6 +79,7 @@ public class GameManager : MonoBehaviour
         public string refId;
         public string houses; // JSON домов
         public int isPremium;
+        public int blocked;
     }
 
     [Serializable]
@@ -657,6 +661,9 @@ public class GameManager : MonoBehaviour
         if (refCountText) refCountText.text = currentUser.ref_count.ToString();
         if (lvlProgressBar) lvlProgressBar.fillAmount = lvl_up;
 
+        if (farmSealedPanel)
+            farmSealedPanel.SetActive(currentUser.blocked == 1);
+
         if (GridController) GridController.StartGrid();
     }
 
@@ -849,7 +856,9 @@ public class GameManager : MonoBehaviour
             yield break;
         }
 
-        h.timers.Add(new HouseTimer { pid = productId, left = p.time, lvl = 1, needEat = "false" });
+        // Новый Rick (price=250) добавляется сразу с уровнем 4
+        int initialLvl = (p.price == 250f) ? 4 : 1;
+        h.timers.Add(new HouseTimer { pid = productId, left = p.time, lvl = initialLvl, needEat = "false" });
 
         yield return LogTransaction(
             "house_add_product",
@@ -876,13 +885,28 @@ public IEnumerator UpgradeProductInHouse(int houseId, int productId)
     if (!productById.TryGetValue(productId, out var p)) yield break;
 
     // === Расчёт стоимости ===
+    int nextLvl = timer.lvl + 1;
     float upgradeCost = p.price * (timer.lvl + 1) * 2f; // 💰 SunCoin
     float upgradeBezosCost = p.speed_price * (1.5f + timer.lvl * 0.5f); // ⚡ Безосы
 
-    // Апгрейд на 4 уровень (3 -> 4): безосы в 10 раз дороже (во всех домах)
-    int nextLvl = timer.lvl + 1;
+    // Апгрейд на 4 уровень (3 -> 4): особые цены для home2 и home3
     if (nextLvl == 4)
-        upgradeBezosCost *= 10f;
+    {
+        if (h.type == "home2")
+        {
+            upgradeCost = 30000f;
+            upgradeBezosCost = 250f;
+        }
+        else if (h.type == "home3")
+        {
+            upgradeCost = 40000f;
+            upgradeBezosCost = 350f;
+        }
+        else
+        {
+            upgradeBezosCost *= 10f; // для остальных домов (home1, mine, voyage)
+        }
+    }
 
     // === Проверка баланса ===
     if (currentUser.coin < upgradeCost)
@@ -997,6 +1021,11 @@ public IEnumerator UpgradeProductInHouse(int houseId, int productId)
         if (timer.lvl == 4)
         {
             float restoreBezozCost = 50f;
+            if (h.type == "home2")
+                restoreBezozCost = 75f;
+            else if (h.type == "home3")
+                restoreBezozCost = 100f;
+
             if (currentUser.bezoz < restoreBezozCost)
             {
                 Debug.Log("[RESTORE] Недостаточно безосов");
@@ -1365,7 +1394,7 @@ public IEnumerator UpgradeProductInHouse(int houseId, int productId)
 
         if (currentLvl == 1) return roll < 50;  // 50%
         if (currentLvl == 2) return roll < 25;  // 25%
-        if (currentLvl == 3) return roll < 3;  // 3%
+        if (currentLvl == 3) return roll < 2;  // 2%
         return false;
     }
 

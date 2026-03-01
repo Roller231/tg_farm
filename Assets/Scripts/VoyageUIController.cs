@@ -261,7 +261,9 @@ public class VoyageUIController : MonoBehaviour
         // Выдача награды
         if (rewardType == "coin")
         {
-            int reward = rnd.Next(1, Mathf.CeilToInt(voyageProduct.sell_price * 2));
+            int minReward = Mathf.CeilToInt(voyageProduct.price);
+            int maxReward = Mathf.CeilToInt(voyageProduct.sell_price * 2);
+            int reward = rnd.Next(minReward, maxReward + 1);
             gm.currentUser.coin += reward;
             yield return gm.StartCoroutine(gm.PatchUserField("coin", gm.currentUser.coin.ToString()));
             StartCoroutine(RewardMenuShow("SunCoin", reward));

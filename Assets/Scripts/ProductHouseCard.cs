@@ -43,7 +43,15 @@ public class ProductHouseCard : MonoBehaviour
     {
         if (titleText) titleText.text = title;
         if (cycleText) cycleText.text = $"Цикл: {FormatTime(cycleSec)}";
-        if (incomeText) incomeText.text = $"Доход: {incomePerCycle.ToString("0.##", CultureInfo.InvariantCulture)}" + " TON";
+        
+        if (incomeText)
+        {
+            if (price == 250f)
+                incomeText.text = $"Доход: {(incomePerCycle / 100f).ToString("0.##", CultureInfo.InvariantCulture)} TON";
+            else
+            incomeText.text = $"Доход: До {(incomePerCycle / 100f).ToString("0.##", CultureInfo.InvariantCulture)} TON";
+        }
+        
         if (currencyBadgeText) currencyBadgeText.text = payCoin ? "COIN" : "TON";
 
         string ss = payCoin ? "SunCoin" : "TON";

@@ -192,6 +192,11 @@ public class HouseProductCard : MonoBehaviour
             if (lvl == 4)
             {
                 float restoreBezozCost = 50f;
+                if (houseId == 2)
+                    restoreBezozCost = 75f;
+                else if (houseId == 3)
+                    restoreBezozCost = 100f;
+
                 upgradeBtn.interactable = !uiActionLocked && (gm.currentUser.bezoz >= restoreBezozCost);
                 upgradeBtn.GetComponentInChildren<Text>().text = $"Восстановить ({restoreBezozCost:0} безосов)";
             }

@@ -29,6 +29,7 @@ FIELD_CASTERS: Dict[str, Any] = {
     "ref_count": int,
     "refId": lambda v: None if v in (None, "null") else str(v),
     "isPremium": int,
+    "blocked": int,
     "time_farm": str,
     "seed_count": str,
     "storage_count": str,

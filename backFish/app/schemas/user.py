@@ -22,6 +22,8 @@ class UserCreate(BaseModel):
 
     isPremium: int = 0
 
+    blocked: int = 0
+
     time_farm: str = ""
     seed_count: str = ""
     storage_count: str = ""
@@ -45,6 +47,8 @@ class UserUpdate(BaseModel):
 
     isPremium: Optional[int] = None
 
+    blocked: Optional[int] = None
+
     time_farm: Optional[str] = None
     seed_count: Optional[str] = None
     storage_count: Optional[str] = None
@@ -60,6 +64,7 @@ class UserUpdate(BaseModel):
 AllowedField = Literal[
     "name", "firstName", "ton", "lvl_upgrade", "lvl", "coin", "bezoz",
     "ref_count", "refId", "isPremium",
+    "blocked",
     "time_farm", "seed_count", "storage_count", "grid_count", "grid_state",
     "houses",
 ]
@@ -84,6 +89,8 @@ class UserOut(BaseModel):
     refId: Optional[str] = None
 
     isPremium: int
+
+    blocked: int
 
     time_farm: str
     seed_count: str

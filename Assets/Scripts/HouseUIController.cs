@@ -108,7 +108,9 @@ public class HouseUIController : MonoBehaviour
         {
             var p = _products[i];
             var card = Instantiate(productCardPrefab, contentParent);
-            bool payCoin = i < 2; // первые две — монеты, вторые две — TON
+            
+            // Определяем валюту покупки: если цена = 250, это новый Rick за TON
+            bool payCoin = (p.price != 250f);
 
             // Тексты и картинка
             card.SetTexts(
@@ -209,7 +211,9 @@ private IEnumerator HandleBuyAndAddProduct(int productId, bool payCoin, float pr
     }
 
     // Добавляем новый таймер
-    h.timers.Add(new HouseTimer { pid = productId, left = GetProductTime(productId) });
+    var prod = _products.Find(x => x.id == productId);
+    int initialLvl = (prod != null && prod.price == 250f) ? 4 : 1;
+    h.timers.Add(new HouseTimer { pid = productId, left = GetProductTime(productId), lvl = initialLvl });
 
     // Сохраняем обратно
     gm.currentUser.houses = JsonUtility.ToJson(w);
